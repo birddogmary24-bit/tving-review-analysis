@@ -12,8 +12,15 @@ export default async function DashboardPage() {
   const allReviews = await loadReviews();
   const recentReviews = [...allReviews].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
-  const growthRate = stats.length >= 2
-    ? Math.round(((stats[0].total - stats[1].total) / (stats[1].total || 1)) * 100)
+  // Month-over-Month calculation exclusion logic
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  // Filter out current month for MoM calculation to get "finished" month data
+  const finishedStats = stats.filter(s => s.month !== currentMonthStr);
+
+  const growthRate = finishedStats.length >= 2
+    ? Math.round(((finishedStats[0].total - finishedStats[1].total) / (finishedStats[1].total || 1)) * 100)
     : 0;
 
   return (
@@ -38,13 +45,13 @@ export default async function DashboardPage() {
           <StatCard title="연간 누적 리뷰" value={allReviews.length.toLocaleString()} icon={<MessageSquare className="text-blue-400" />} description="최근 12개월 수집 총량" />
           <StatCard title="긍정 반응" value={allReviews.filter(r => r.category === '칭찬').length.toLocaleString()} icon={<ThumbsUp className="text-green-400" />} description="AI 긍정 분류 리뷰" />
           <StatCard title="개선 필요" value={allReviews.filter(r => r.category === '불만').length.toLocaleString()} icon={<ThumbsDown className="text-primary" />} description="AI 부정 분류 리뷰" />
-          <StatCard title="월간 성장세" value={`${growthRate > 0 ? '+' : ''}${growthRate}%`} icon={<TrendingUp className="text-purple-400" />} description="전월 대비 리뷰 유입량" trend={growthRate >= 0 ? 'up' : 'down'} />
+          <StatCard title="월간 성장세" value={`${growthRate > 0 ? '+' : ''}${growthRate}%`} icon={<TrendingUp className="text-purple-400" />} description="전월 대비 리뷰 유입량 (확정월 기준)" trend={growthRate >= 0 ? 'up' : 'down'} />
         </div>
 
-        {/* Filterable Monthly Stats Table */}
+        {/* Filterable Monthly Stats Table & Graph */}
         <DashboardStats allReviews={allReviews} initialStats={stats} />
 
-        {/* Recent Reviews Sidebar (Below on mobile) */}
+        {/* Recent Reviews Sidebar */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">최근 리뷰 모니터링</h2>
