@@ -1,5 +1,8 @@
 import Layout from '@/components/layout';
 import { getMonthlyStats, loadReviews } from '@/lib/storage';
+
+export const dynamic = 'force-dynamic';
+
 import { TrendingUp, MessageSquare, ThumbsUp, ThumbsDown, ArrowRight, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { DashboardStats } from '@/components/dashboard-stats';
@@ -58,8 +61,8 @@ export default async function DashboardPage() {
                     <span className="text-[10px] text-muted-foreground">{new Date(r.date).toLocaleDateString()}</span>
                   </div>
                   <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${r.category === '칭찬' ? 'bg-green-500/10 text-green-400' :
-                      r.category === '불만' ? 'bg-primary/10 text-primary' :
-                        'bg-muted text-muted-foreground'
+                    r.category === '불만' ? 'bg-primary/10 text-primary' :
+                      'bg-muted text-muted-foreground'
                     }`}>
                     {r.subCategory || r.category}
                   </span>

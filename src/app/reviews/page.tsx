@@ -2,6 +2,8 @@ import Layout from '@/components/layout';
 import { loadReviews } from '@/lib/storage';
 import { ReviewList } from '@/components/review-list';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ReviewsPage() {
     const allReviews = await loadReviews();
     const sortedReviews = allReviews.sort((a, b) => b.date.localeCompare(a.date));
