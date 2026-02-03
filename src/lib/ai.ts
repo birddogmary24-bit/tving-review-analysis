@@ -3,6 +3,12 @@ import { Review, AnalyzedReview, Category } from "./types";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+export const SUB_CATEGORIES = {
+    '불만': ['플레이어 오류', '광고 관련 불만', '요금 및 결제', '콘텐츠 부족', 'UI/UX 불편', '앱 안정성', '기타 불만'],
+    '칭찬': ['오리지널 콘텐츠', '화질 및 재생 품질', 'UI 편리성', '콘텐츠 다양성', '합리적 가격', '광고 적절성', '기타 칭찬'],
+    '기타': ['단순 문의', '기능 제안', '미분류']
+};
+
 export async function categorizeReview(review: Review): Promise<{ category: Category; subCategory: string }> {
     if (!process.env.GEMINI_API_KEY) {
         return { category: '기타', subCategory: '미분류' };
@@ -13,6 +19,8 @@ export async function categorizeReview(review: Review): Promise<{ category: Cate
     const prompt = `
     당신은 티빙(TVING) 앱의 사용자 리뷰를 분석하는 전문가입니다.
     다음 리뷰를 분석하여 메인 카테고리와 세부 카테고리를 분류해주세요.
+    
+    반드시 아래에 정의된 세부 카테고리 목록 중에서만 선택해야 합니다.
 
     [리뷰 정보]
     - 별점: ${review.score}
@@ -21,12 +29,13 @@ export async function categorizeReview(review: Review): Promise<{ category: Cate
 
     [분류 가이드]
     1. 메인 카테고리: '칭찬', '불만', '기타' 중 하나
-    2. 세부 카테고리 (하위 레벨):
-       - 불만 선택 시: '버그/오류', '콘텐츠부족', '요금/결제', 'UI설계', '재생품질', '광고불편', '검색불편', '기타불만'
-       - 칭찬 선택 시: '오리지널', 'UI편리', '화질/음질', '가격만족', '서비스다양성', '광고적절', '기타칭찬'
-       - 기타 선택 시: '단순문의', '기능제안', '미분류'
+    2. 세부 카테고리 (반드시 아래 리스트에서 선택):
+       - '불만'인 경우: ${SUB_CATEGORIES['불만'].join(', ')}
+       - '칭찬'인 경우: ${SUB_CATEGORIES['칭찬'].join(', ')}
+       - '기타'인 경우: ${SUB_CATEGORIES['기타'].join(', ')}
 
-    응답은 반드시 JSON 형식으로만 해주세요. 예시: {"category": "불만", "subCategory": "버그/오류"}
+    응답은 반드시 JSON 형식으로만 해주세요. 
+    예시: {"category": "불만", "subCategory": "플레이어 오류"}
   `;
 
     try {
@@ -34,7 +43,6 @@ export async function categorizeReview(review: Review): Promise<{ category: Cate
         const response = await result.response;
         let text = response.text().trim();
 
-        // JSON 추출 (Markdown backticks 처리)
         if (text.includes('```json')) {
             text = text.split('```json')[1].split('```')[0].trim();
         } else if (text.includes('```')) {
@@ -42,9 +50,15 @@ export async function categorizeReview(review: Review): Promise<{ category: Cate
         }
 
         const json = JSON.parse(text);
+
+        // Ensure the subCategory is one of the allowed ones
+        const mainCat = json.category as Category;
+        const allowedSubs = SUB_CATEGORIES[mainCat] || [];
+        const finalSub = allowedSubs.includes(json.subCategory) ? json.subCategory : allowedSubs[allowedSubs.length - 1];
+
         return {
-            category: json.category as Category,
-            subCategory: json.subCategory
+            category: mainCat,
+            subCategory: finalSub
         };
     } catch (error) {
         console.error("AI categorization error:", error);
