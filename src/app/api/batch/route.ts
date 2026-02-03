@@ -11,30 +11,33 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if update is allowed today
     const { canUpdate } = await canUpdateToday();
     if (!canUpdate) {
         return NextResponse.json({
             success: false,
             error: 'ALREADY_UPDATED',
-            message: '오늘은 이미 업데이트가 완료되었습니다. 내일 다시 시도해주세요.'
+            message: '오늘은 이미 업데이트가 완료되었습니다.'
         }, { status: 429 });
     }
 
     try {
+        // Fetch substantially more reviews to reach the target volume
         const [gpReviews, asReviews] = await Promise.all([
-            fetchGooglePlayReviews('net.cj.cjhv.gs.tving', 5),
-            fetchAppStoreReviews('400101401', 5)
+            fetchGooglePlayReviews('net.cj.cjhv.gs.tving', 30), // Increased to 30 pages (~3000 reviews)
+            fetchAppStoreReviews('400101401', 10)         // App Store max pages (up to ~500 reviews)
         ]);
 
         const allReviews = [...gpReviews, ...asReviews];
+
+        // Split into chunks to avoid hitting AI rate limits or timeout during massive batch
         const analyzed = await categorizeReviewsBatch(allReviews);
         await saveReviews(analyzed);
 
         return NextResponse.json({
             success: true,
+            total_fetched: allReviews.length,
             count: analyzed.length,
-            message: 'Batch processing completed successfully'
+            message: 'Batch processing completed with full volume'
         });
     } catch (error) {
         console.error('Batch processing failed:', error);

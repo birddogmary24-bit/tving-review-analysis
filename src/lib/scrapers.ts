@@ -2,12 +2,12 @@ import gplay from 'google-play-scraper';
 import appStore from 'app-store-scraper';
 import { Review } from './types';
 
-export async function fetchGooglePlayReviews(appId: string = 'net.cj.cjhv.gs.tving', pages: number = 3): Promise<Review[]> {
+export async function fetchGooglePlayReviews(appId: string = 'net.cj.cjhv.gs.tving', pages: number = 20): Promise<Review[]> {
     try {
         const reviews = await gplay.reviews({
             appId,
             sort: gplay.sort.NEWEST,
-            num: pages * 100,
+            num: pages * 100, // Increase to fetch more (max per page is 100 in many scrapers)
             lang: 'ko',
             country: 'kr'
         });
@@ -28,10 +28,11 @@ export async function fetchGooglePlayReviews(appId: string = 'net.cj.cjhv.gs.tvi
     }
 }
 
-export async function fetchAppStoreReviews(id: string = '400101401', pages: number = 3): Promise<Review[]> {
+export async function fetchAppStoreReviews(id: string = '400101401', pages: number = 10): Promise<Review[]> {
     try {
         const reviews: any[] = [];
-        for (let i = 1; i <= pages; i++) {
+        // App Store scraper allows up to 10 pages maximum (500 reviews total per call usually)
+        for (let i = 1; i <= Math.min(pages, 10); i++) {
             const pageReviews = await appStore.reviews({
                 id,
                 country: 'kr',
@@ -44,7 +45,6 @@ export async function fetchAppStoreReviews(id: string = '400101401', pages: numb
         return reviews.map((r: any) => ({
             id: r.id,
             userName: r.userName,
-            // App Store scraper often returns 'updated' or 'date' depending on version
             date: r.updated || r.date ? new Date(r.updated || r.date).toISOString() : new Date().toISOString(),
             score: r.score,
             title: r.title,
