@@ -20,11 +20,14 @@ async function delay(ms: number) {
 
 export async function categorizeReviewsBatch(reviews: Review[]): Promise<AnalyzedReview[]> {
     if (!process.env.GEMINI_API_KEY) {
-        return reviews.map(r => ({ ...r, category: '기타', subCategory: '미분류', analysisDate: new Date().toISOString() }));
+        return reviews.map(r => {
+            const category: Category = r.score >= 3 ? '칭찬' : '불만';
+            return { ...r, category, subCategory: '미분류', analysisDate: new Date().toISOString() };
+        });
     }
 
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-    const BATCH_SIZE = 50; // 무료 티어의 토큰 제한(TPM)과 질문 횟수(RPD)를 고려한 최적의 묶음 크기
+    const BATCH_SIZE = 50;
     const analyzed: AnalyzedReview[] = [];
 
     console.log(`[AI] Starting batch analysis for ${reviews.length} reviews using ${MODEL_NAME}...`);
@@ -32,27 +35,28 @@ export async function categorizeReviewsBatch(reviews: Review[]): Promise<Analyze
     for (let i = 0; i < reviews.length; i += BATCH_SIZE) {
         const chunk = reviews.slice(i, i + BATCH_SIZE);
 
-        // 무료 티어의 속도 제한(RPM: 2회/분)을 피하기 위한 지연 시간 (결제 계정이면 더 짧게 가능)
         if (i > 0) {
             console.log(`[AI] Waiting to respect Free Tier rate limits...`);
-            await delay(35000); // 35초 대기 (안정적 처리를 위해)
+            await delay(35000);
         }
 
         const prompt = `
-        당신은 티빙(TVING) 앱 리뷰 분석 전문가입니다. 아래 ${chunk.length}개의 서비스 리뷰를 분석하여 카테고리를 분류해주세요.
+        당신은 티빙(TVING) 앱 리뷰 분석 전문가입니다. 아래 ${chunk.length}개의 서비스 리뷰를 분석하여 세부 사유를 분류해주세요.
         
-        [분류 기준]
-        1. 메인 카테고리: '칭찬', '불만', '기타'
-        2. 세부 사유 리스트:
-           - 불만: ${SUB_CATEGORIES['불만'].join(', ')}
-           - 칭찬: ${SUB_CATEGORIES['칭찬'].join(', ')}
-           - 기타: ${SUB_CATEGORIES['기타'].join(', ')}
+        [대원칙]
+        - 별점 3, 4, 5점: 무조건 '칭찬'으로 분류함.
+        - 별점 1, 2점: 무조건 '불만'으로 분류함.
+        
+        [세부 사유 리스트]
+        - 칭찬(3점 이상): ${SUB_CATEGORIES['칭찬'].join(', ')}
+        - 불만(2점 이하): ${SUB_CATEGORIES['불만'].join(', ')}
+        - 기타: ${SUB_CATEGORIES['기타'].join(', ')}
 
         [리뷰 목록]
         ${chunk.map((r, idx) => `ID: ${idx}, 별점: ${r.score}, 내용: ${r.text}`).join('\n')}
 
         [응답 형식]
-        반드시 아래와 같은 JSON 배열 형식으로만 응답하세요. 다른 설명은 생략하십시오.
+        반드시 아래와 같은 JSON 배열 형식으로만 응답하세요.
         [
           {"id": 0, "category": "불만", "subCategory": "플레이어 오류"},
           {"id": 1, "category": "칭찬", "subCategory": "오리지널 콘텐츠"}
@@ -64,18 +68,25 @@ export async function categorizeReviewsBatch(reviews: Review[]): Promise<Analyze
             const response = await result.response;
             let text = response.text().trim();
 
-            // JSON 추출
             if (text.includes('```json')) text = text.split('```json')[1].split('```')[0].trim();
             else if (text.includes('```')) text = text.split('```')[1].split('```')[0].trim();
 
             const results = JSON.parse(text);
 
             chunk.forEach((review, idx) => {
-                const res = results.find((r: any) => r.id === idx) || { category: '기타', subCategory: '미분류' };
+                const res = results.find((r: any) => r.id === idx) || { category: '', subCategory: '미분류' };
+
+                // 별점에 따른 카테고리 강제 교정 (사용자 요청: 3점 이상은 칭찬, 1~2점은 불만)
+                const finalCategory: Category = review.score >= 3 ? '칭찬' : '불만';
+
+                // 세부 카테고리가 해당 메인 카테고리에 속하는지 검증
+                const allowedSubs = SUB_CATEGORIES[finalCategory];
+                const finalSub = allowedSubs.includes(res.subCategory) ? res.subCategory : allowedSubs[allowedSubs.length - 1];
+
                 analyzed.push({
                     ...review,
-                    category: res.category as Category,
-                    subCategory: res.subCategory,
+                    category: finalCategory,
+                    subCategory: finalSub,
                     analysisDate: new Date().toISOString()
                 });
             });
@@ -83,11 +94,10 @@ export async function categorizeReviewsBatch(reviews: Review[]): Promise<Analyze
             console.log(`[AI] Processed ${analyzed.length}/${reviews.length} reviews...`);
         } catch (error) {
             console.error(`[AI] Error processing chunk at ${i}:`, error);
-            // 에러 시 기본값 처리
             chunk.forEach(review => {
                 analyzed.push({
                     ...review,
-                    category: '기타',
+                    category: review.score >= 3 ? '칭찬' : '불만',
                     subCategory: '분석오류',
                     analysisDate: new Date().toISOString()
                 });

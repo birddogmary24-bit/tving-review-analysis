@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { AnalyzedReview, MonthlyStats } from '@/lib/types';
-import { Download, Filter, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Download, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -18,7 +18,6 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
         return Array.from(new Set(allReviews.map(r => r.subCategory))).filter(Boolean).sort();
     }, [allReviews]);
 
-    // Current Date Logic
     const now = new Date();
     const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
@@ -33,9 +32,10 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                     statsMap[month] = { month, complaints: 0, compliments: 0, others: 0, total: 0 };
                 }
                 statsMap[month].total++;
-                if (r.category === '칭찬') statsMap[month].compliments++;
-                else if (r.category === '불만') statsMap[month].complaints++;
-                else statsMap[month].others++;
+
+                // Score-based categorization for filter
+                if (r.score >= 3) statsMap[month].compliments++;
+                else statsMap[month].complaints++;
             });
             sourceStats = Object.values(statsMap);
         }
@@ -43,7 +43,6 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
         return sourceStats.sort((a, b) => a.month.localeCompare(b.month));
     }, [selectedSubCat, allReviews, initialStats]);
 
-    // Graph Data
     const chartData = useMemo(() => {
         return filteredStats.map(s => ({
             name: s.month,
@@ -55,7 +54,6 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
 
     return (
         <section className="space-y-8">
-            {/* Chart Section */}
             <div className="bg-card border border-border p-6 rounded-2xl shadow-xl space-y-6">
                 <div className="flex items-center justify-between">
                     <h3 className="text-xl font-bold flex items-center gap-2">

@@ -89,9 +89,14 @@ export async function getMonthlyStats(): Promise<MonthlyStats[]> {
             statsMap[month] = { month, complaints: 0, compliments: 0, others: 0, total: 0 };
         }
         statsMap[month].total++;
-        if (r.category === '칭찬') statsMap[month].compliments++;
-        else if (r.category === '불만') statsMap[month].complaints++;
-        else statsMap[month].others++;
+
+        // 사용자 요청 기준: 3점 이상 칭찬(긍정), 2점 이하 불만(부정)
+        // r.category가 이미 저장되어 있더라도, UI 정합성을 위해 별점 기준으로 재지계함
+        if (r.score >= 3) {
+            statsMap[month].compliments++;
+        } else {
+            statsMap[month].complaints++;
+        }
     });
 
     return Object.values(statsMap).sort((a, b) => b.month.localeCompare(a.month));

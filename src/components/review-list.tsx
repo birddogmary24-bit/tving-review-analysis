@@ -2,8 +2,7 @@
 
 import { AnalyzedReview, Category } from '@/lib/types';
 import { useState, useMemo } from 'react';
-import { Search, Filter, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import { Search, Filter, Download, Star } from 'lucide-react';
 import { SUB_CATEGORIES } from '@/lib/ai';
 
 interface ReviewListProps {
@@ -15,6 +14,7 @@ const ITEMS_PER_PAGE = 30;
 export function ReviewList({ initialReviews }: ReviewListProps) {
     const [categoryFilter, setCategoryFilter] = useState<Category | '전체'>('전체');
     const [subCategoryFilter, setSubCategoryFilter] = useState<string>('전체');
+    const [scoreFilter, setScoreFilter] = useState<number | '전체'>('전체');
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -22,12 +22,13 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
         return initialReviews.filter(r => {
             const matchesCategory = categoryFilter === '전체' || r.category === categoryFilter;
             const matchesSubCategory = subCategoryFilter === '전체' || r.subCategory === subCategoryFilter;
+            const matchesScore = scoreFilter === '전체' || r.score === scoreFilter;
             const matchesSearch = !searchTerm ||
                 r.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.userName.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesCategory && matchesSubCategory && matchesSearch;
+            return matchesCategory && matchesSubCategory && matchesScore && matchesSearch;
         });
-    }, [initialReviews, categoryFilter, subCategoryFilter, searchTerm]);
+    }, [initialReviews, categoryFilter, subCategoryFilter, scoreFilter, searchTerm]);
 
     const totalPages = Math.ceil(filteredReviews.length / ITEMS_PER_PAGE);
     const paginatedReviews = useMemo(() => {
@@ -35,13 +36,23 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
         return filteredReviews.slice(start, start + ITEMS_PER_PAGE);
     }, [filteredReviews, currentPage]);
 
+    // Star counts for current filter context (or globally)
+    const starCounts = useMemo(() => {
+        const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        initialReviews.forEach(r => {
+            if (counts[r.score as keyof typeof counts] !== undefined) {
+                counts[r.score as keyof typeof counts]++;
+            }
+        });
+        return counts;
+    }, [initialReviews]);
+
     // Available sub-categories based on standard list + what's in data
     const availableSubCategories = useMemo(() => {
         if (categoryFilter === '전체') {
             const all = Array.from(new Set(initialReviews.map(r => r.subCategory || '미분류'))).sort();
             return all;
         }
-        // Use the predefined list if specific category is selected, or fallback to data
         const predefined = SUB_CATEGORIES[categoryFilter] || [];
         const fromData = Array.from(new Set(initialReviews.filter(r => r.category === categoryFilter).map(r => r.subCategory))).filter(Boolean);
         return Array.from(new Set([...predefined, ...fromData])).sort();
@@ -62,8 +73,28 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                             onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                         />
                     </div>
+
+                    {/* Star Rating Dropdown with Counts */}
+                    <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl group hover:border-primary/50 transition-colors">
+                        <Star className="w-4 h-4 text-yellow-500" />
+                        <select
+                            className="bg-transparent text-sm font-black focus:outline-none cursor-pointer appearance-none pr-6"
+                            value={scoreFilter}
+                            onChange={(e) => {
+                                const val = e.target.value;
+                                setScoreFilter(val === '전체' ? '전체' : Number(val));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <option value="전체">모든 별점 (Total: {initialReviews.length})</option>
+                            {[5, 4, 3, 2, 1].map(s => (
+                                <option key={s} value={s}>{s}점 ({starCounts[s as keyof typeof starCounts]}개)</option>
+                            ))}
+                        </select>
+                    </div>
+
                     <div className="flex gap-2">
-                        {['전체', '칭찬', '불만', '기타'].map((cat) => (
+                        {['전체', '칭찬', '불만'].map((cat) => (
                             <button
                                 key={cat}
                                 onClick={() => {
@@ -72,8 +103,8 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                                     setCurrentPage(1);
                                 }}
                                 className={`px-6 py-3.5 rounded-xl text-sm font-black transition-all ${categoryFilter === cat
-                                        ? 'bg-primary text-white shadow-lg'
-                                        : 'bg-secondary text-foreground hover:bg-muted border border-border'
+                                    ? 'bg-primary text-white shadow-lg'
+                                    : 'bg-secondary text-foreground hover:bg-muted border border-border'
                                     }`}
                             >
                                 {cat}
@@ -88,8 +119,8 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                     <button
                         onClick={() => { setSubCategoryFilter('전체'); setCurrentPage(1); }}
                         className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${subCategoryFilter === '전체'
-                                ? 'bg-white text-black border-white'
-                                : 'bg-transparent text-muted-foreground border-border hover:border-muted-foreground'
+                            ? 'bg-white text-black border-white'
+                            : 'bg-transparent text-muted-foreground border-border hover:border-muted-foreground'
                             }`}
                     >
                         전체
@@ -99,8 +130,8 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                             key={sub}
                             onClick={() => { setSubCategoryFilter(sub); setCurrentPage(1); }}
                             className={`px-3 py-1.5 rounded-full text-[11px] font-bold transition-all border ${subCategoryFilter === sub
-                                    ? 'bg-white text-black border-white'
-                                    : 'bg-transparent text-muted-foreground border-border hover:border-muted-foreground'
+                                ? 'bg-white text-black border-white'
+                                : 'bg-transparent text-muted-foreground border-border hover:border-muted-foreground'
                                 }`}
                         >
                             {sub}
@@ -135,8 +166,8 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                                     <td className="px-8 py-4">
                                         <div className="flex flex-col gap-1">
                                             <span className={`w-fit px-2 py-0.5 rounded text-[9px] font-black uppercase ${r.category === '칭찬' ? 'bg-green-500 text-white' :
-                                                    r.category === '불만' ? 'bg-primary text-white' :
-                                                        'bg-muted text-foreground'
+                                                r.category === '불만' ? 'bg-primary text-white' :
+                                                    'bg-muted text-foreground'
                                                 }`}>
                                                 {r.category}
                                             </span>

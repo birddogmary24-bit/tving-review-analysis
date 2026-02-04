@@ -12,6 +12,10 @@ export default async function DashboardPage() {
   const allReviews = await loadReviews();
   const recentReviews = [...allReviews].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
+  // Score-based categorization (user request: 3+ is 칭찬, 1-2 is 불만)
+  const complimentsCount = allReviews.filter(r => r.score >= 3).length;
+  const complaintsCount = allReviews.filter(r => r.score <= 2).length;
+
   // Month-over-Month calculation exclusion logic
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -43,8 +47,8 @@ export default async function DashboardPage() {
         {/* Stats Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <StatCard title="연간 누적 리뷰" value={allReviews.length.toLocaleString()} icon={<MessageSquare className="text-blue-400" />} description="최근 12개월 수집 총량" />
-          <StatCard title="긍정 반응" value={allReviews.filter(r => r.category === '칭찬').length.toLocaleString()} icon={<ThumbsUp className="text-green-400" />} description="AI 긍정 분류 리뷰" />
-          <StatCard title="개선 필요" value={allReviews.filter(r => r.category === '불만').length.toLocaleString()} icon={<ThumbsDown className="text-primary" />} description="AI 부정 분류 리뷰" />
+          <StatCard title="긍정 반응" value={complimentsCount.toLocaleString()} icon={<ThumbsUp className="text-green-400" />} description="별점 3점 이상 리뷰" />
+          <StatCard title="개선 필요" value={complaintsCount.toLocaleString()} icon={<ThumbsDown className="text-primary" />} description="별점 2점 이하 리뷰" />
           <StatCard title="월간 성장세" value={`${growthRate > 0 ? '+' : ''}${growthRate}%`} icon={<TrendingUp className="text-purple-400" />} description="전월 대비 리뷰 유입량 (확정월 기준)" trend={growthRate >= 0 ? 'up' : 'down'} />
         </div>
 
@@ -67,11 +71,8 @@ export default async function DashboardPage() {
                     <span className="text-sm font-bold text-foreground">{r.userName}</span>
                     <span className="text-[10px] text-muted-foreground">{new Date(r.date).toLocaleDateString()}</span>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${r.category === '칭찬' ? 'bg-green-500/10 text-green-400' :
-                    r.category === '불만' ? 'bg-primary/10 text-primary' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
-                    {r.subCategory || r.category}
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${r.score >= 3 ? 'bg-green-500/10 text-green-400' : 'bg-primary/10 text-primary'}`}>
+                    {r.subCategory || (r.score >= 3 ? '긍정' : '부정')}
                   </span>
                 </div>
                 <p className="text-xs leading-relaxed line-clamp-3 text-foreground/80 italic">"{r.text}"</p>
