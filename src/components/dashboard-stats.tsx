@@ -115,6 +115,12 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                             </optgroup>
                         </select>
                     </div>
+                    <Link
+                        href="/api/export"
+                        className="text-sm font-black text-white bg-secondary border border-border px-5 py-2.5 rounded-xl hover:bg-muted flex items-center gap-2 transition-all hover:scale-105"
+                    >
+                        <Download className="w-4 h-4" /> EXCEL
+                    </Link>
                 </div>
             </div>
 
