@@ -12,7 +12,7 @@ export const SUB_CATEGORIES = {
 /**
  * AI 모델 설정: Gemini 1.5 Pro 사용 (무료 티어 한도 준수를 위해 묶음 분석 필수)
  */
-const MODEL_NAME = "gemini-1.5-pro";
+const MODEL_NAME = "gemini-2.5-pro";
 
 async function delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
