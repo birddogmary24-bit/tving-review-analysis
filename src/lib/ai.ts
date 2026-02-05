@@ -10,9 +10,9 @@ export const SUB_CATEGORIES = {
 };
 
 /**
- * AI 모델 설정: Gemini 1.5 Pro 사용 (무료 티어 한도 준수를 위해 묶음 분석 필수)
+ * AI 모델 설정: Gemini 2.5 Pro 사용
  */
-const MODEL_NAME = "gemini-2.5-pro";
+const MODEL_NAME = "gemini-2.0-flash";
 
 async function delay(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -30,14 +30,21 @@ export async function categorizeReviewsBatch(reviews: Review[]): Promise<Analyze
     const BATCH_SIZE = 50;
     const analyzed: AnalyzedReview[] = [];
 
-    console.log(`[AI] Starting batch analysis for ${reviews.length} reviews using ${MODEL_NAME}...`);
+    // 유료 모드(고속) 여부 확인
+    const IS_FAST_MODE = process.env.GEMINI_FAST_MODE === 'true';
+
+    console.log(`[AI] Starting batch analysis for ${reviews.length} reviews using ${MODEL_NAME} (${IS_FAST_MODE ? 'FAST' : 'FREE'} mode)...`);
 
     for (let i = 0; i < reviews.length; i += BATCH_SIZE) {
         const chunk = reviews.slice(i, i + BATCH_SIZE);
 
-        if (i > 0) {
+        // 무료 티어의 속도 제한을 위해 대기 (FAST 모드일 때는 대기 없이 즉시 실행)
+        if (i > 0 && !IS_FAST_MODE) {
             console.log(`[AI] Waiting to respect Free Tier rate limits...`);
             await delay(35000);
+        } else if (i > 0 && IS_FAST_MODE) {
+            // 유료 모드라도 안전을 위해 10초 간격 유지 (429 방지)
+            await delay(10000);
         }
 
         const prompt = `
@@ -76,10 +83,7 @@ export async function categorizeReviewsBatch(reviews: Review[]): Promise<Analyze
             chunk.forEach((review, idx) => {
                 const res = results.find((r: any) => r.id === idx) || { category: '', subCategory: '미분류' };
 
-                // 별점에 따른 카테고리 강제 교정 (사용자 요청: 3점 이상은 칭찬, 1~2점은 불만)
                 const finalCategory: Category = review.score >= 3 ? '칭찬' : '불만';
-
-                // 세부 카테고리가 해당 메인 카테고리에 속하는지 검증
                 const allowedSubs = SUB_CATEGORIES[finalCategory];
                 const finalSub = allowedSubs.includes(res.subCategory) ? res.subCategory : allowedSubs[allowedSubs.length - 1];
 
