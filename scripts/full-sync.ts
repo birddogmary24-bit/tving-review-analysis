@@ -5,11 +5,11 @@ import { saveReviews } from '../src/lib/storage';
 async function main() {
     console.log('--- Starting Full Data Sync ---');
 
-    // 1. Scraping
-    console.log('Step 1: Fetching reviews from stores...');
+    // 1. Scraping (Increased for 10k goal)
+    console.log('Step 1: Fetching reviews from stores (Expanded for 10k push)...');
     const [gpReviews, asReviews] = await Promise.all([
-        fetchGooglePlayReviews('net.cj.cjhv.gs.tving', 30),
-        fetchAppStoreReviews('400101401', 10)
+        fetchGooglePlayReviews('net.cj.cjhv.gs.tving', 80), // ~8000 reviews
+        fetchAppStoreReviews('400101401', 10)         // ~500 reviews
     ]);
     const allReviews = [...gpReviews, ...asReviews];
     console.log(`Fetched total ${allReviews.length} reviews.`);

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { AnalyzedReview, MonthlyStats } from '@/lib/types';
-import { Download, Filter } from 'lucide-react';
+import { Download, Filter, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -13,17 +13,23 @@ interface DashboardStatsProps {
 
 export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps) {
     const [selectedSubCat, setSelectedSubCat] = useState<string>('전체');
+    const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // Empty means all
 
     const subCategories = useMemo(() => {
         return Array.from(new Set(allReviews.map(r => r.subCategory))).filter(Boolean).sort();
     }, [allReviews]);
 
+    const availableMonths = useMemo(() => {
+        return initialStats.map(s => s.month).sort((a, b) => b.localeCompare(a));
+    }, [initialStats]);
+
     const now = new Date();
     const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     const filteredStats = useMemo(() => {
-        let sourceStats = initialStats;
+        let stats = initialStats;
 
+        // Subcategory Filter
         if (selectedSubCat !== '전체') {
             const statsMap: Record<string, MonthlyStats> = {};
             allReviews.filter(r => r.subCategory === selectedSubCat).forEach(r => {
@@ -32,16 +38,19 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                     statsMap[month] = { month, complaints: 0, compliments: 0, others: 0, total: 0 };
                 }
                 statsMap[month].total++;
-
-                // Score-based categorization for filter
                 if (r.score >= 3) statsMap[month].compliments++;
                 else statsMap[month].complaints++;
             });
-            sourceStats = Object.values(statsMap);
+            stats = Object.values(statsMap);
         }
 
-        return sourceStats.sort((a, b) => a.month.localeCompare(b.month));
-    }, [selectedSubCat, allReviews, initialStats]);
+        // Month Filter (Multi-select)
+        if (selectedMonths.length > 0) {
+            stats = stats.filter(s => selectedMonths.includes(s.month));
+        }
+
+        return stats.sort((a, b) => a.month.localeCompare(b.month));
+    }, [selectedSubCat, selectedMonths, allReviews, initialStats]);
 
     const chartData = useMemo(() => {
         return filteredStats.map(s => ({
@@ -51,6 +60,12 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
             부정: s.complaints
         }));
     }, [filteredStats]);
+
+    const toggleMonth = (month: string) => {
+        setSelectedMonths(prev =>
+            prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
+        );
+    };
 
     return (
         <section className="space-y-8">
@@ -91,34 +106,66 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                 </div>
             </div>
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h2 className="text-2xl font-bold flex items-center gap-2">
-                    월별 분석 현황
-                    <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded tracking-tighter font-black">AI FILTER</span>
-                </h2>
+            <div className="flex flex-col space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 className="text-2xl font-bold flex items-center gap-2">
+                        분석 필터 및 현황
+                        <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded tracking-tighter font-black">MULTI-SELECT</span>
+                    </h2>
 
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl">
-                        <Filter className="w-4 h-4 text-muted-foreground" />
-                        <select
-                            className="bg-transparent text-sm font-black focus:outline-none cursor-pointer appearance-none pr-4"
-                            value={selectedSubCat}
-                            onChange={(e) => setSelectedSubCat(e.target.value)}
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Month multi-select placeholder style */}
+                        <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl relative group">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm font-black">
+                                {selectedMonths.length === 0 ? '모든 기간' : `${selectedMonths.length}개 월 선택됨`}
+                            </span>
+                            <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl p-2 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2">
+                                <div className="max-h-60 overflow-y-auto space-y-1">
+                                    <button
+                                        onClick={() => setSelectedMonths([])}
+                                        className="w-full text-left px-2 py-1 text-xs hover:bg-secondary rounded font-bold"
+                                    >
+                                        전체 선택 해제
+                                    </button>
+                                    <div className="border-t border-border my-1" />
+                                    {availableMonths.map(m => (
+                                        <label key={m} className="flex items-center gap-2 px-2 py-1 hover:bg-secondary rounded cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedMonths.includes(m)}
+                                                onChange={() => toggleMonth(m)}
+                                                className="w-3 h-3 rounded bg-zinc-800 border-zinc-700"
+                                            />
+                                            <span className="text-xs font-medium">{m}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl">
+                            <Filter className="w-4 h-4 text-muted-foreground" />
+                            <select
+                                className="bg-transparent text-sm font-black focus:outline-none cursor-pointer appearance-none pr-4"
+                                value={selectedSubCat}
+                                onChange={(e) => setSelectedSubCat(e.target.value)}
+                            >
+                                <option value="전체">모든 세부 사유</option>
+                                <optgroup label="분포 중인 사유">
+                                    {subCategories.map(cat => (
+                                        <option key={cat} value={cat}>{cat}</option>
+                                    ))}
+                                </optgroup>
+                            </select>
+                        </div>
+                        <Link
+                            href="/api/export"
+                            className="text-sm font-black text-white bg-secondary border border-border px-5 py-2.5 rounded-xl hover:bg-muted flex items-center gap-2 transition-all hover:scale-105"
                         >
-                            <option value="전체">모든 세부 사유</option>
-                            <optgroup label="분포 중인 사유">
-                                {subCategories.map(cat => (
-                                    <option key={cat} value={cat}>{cat}</option>
-                                ))}
-                            </optgroup>
-                        </select>
+                            <Download className="w-4 h-4" /> EXCEL
+                        </Link>
                     </div>
-                    <Link
-                        href="/api/export"
-                        className="text-sm font-black text-white bg-secondary border border-border px-5 py-2.5 rounded-xl hover:bg-muted flex items-center gap-2 transition-all hover:scale-105"
-                    >
-                        <Download className="w-4 h-4" /> EXCEL
-                    </Link>
                 </div>
             </div>
 

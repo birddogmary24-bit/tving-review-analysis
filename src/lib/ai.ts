@@ -38,13 +38,13 @@ export async function categorizeReviewsBatch(reviews: Review[]): Promise<Analyze
     for (let i = 0; i < reviews.length; i += BATCH_SIZE) {
         const chunk = reviews.slice(i, i + BATCH_SIZE);
 
-        // 무료 티어의 속도 제한을 위해 대기 (FAST 모드일 때는 대기 없이 즉시 실행)
+        // Gemini 2.0 Flash 무료 티어는 15 RPM이므로, 6초 정도만 대기해도 안전하게 대용량 처리가 가능합니다. (Timeout 방지)
         if (i > 0 && !IS_FAST_MODE) {
-            console.log(`[AI] Waiting to respect Free Tier rate limits...`);
-            await delay(35000);
+            console.log(`[AI] Waiting 6s to respect Gemini Flash RPM limits...`);
+            await delay(6000);
         } else if (i > 0 && IS_FAST_MODE) {
-            // 유료 모드라도 안전을 위해 10초 간격 유지 (429 방지)
-            await delay(10000);
+            // 유료 모드라도 안전을 위해 2초 간격 유지 (429 방지)
+            await delay(2000);
         }
 
         const prompt = `

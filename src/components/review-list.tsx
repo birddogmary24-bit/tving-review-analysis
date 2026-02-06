@@ -2,7 +2,7 @@
 
 import { AnalyzedReview, Category } from '@/lib/types';
 import { useState, useMemo } from 'react';
-import { Search, Filter, Download, Star } from 'lucide-react';
+import { Search, Filter, Calendar, Star } from 'lucide-react';
 import { SUB_CATEGORIES } from '@/lib/ai';
 
 interface ReviewListProps {
@@ -15,20 +15,28 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
     const [categoryFilter, setCategoryFilter] = useState<Category | '전체'>('전체');
     const [subCategoryFilter, setSubCategoryFilter] = useState<string>('전체');
     const [scoreFilter, setScoreFilter] = useState<number | '전체'>('전체');
+    const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
+    const availableMonths = useMemo(() => {
+        const months = Array.from(new Set(initialReviews.map(r => r.date.substring(0, 7)))).sort((a, b) => b.localeCompare(a));
+        return months;
+    }, [initialReviews]);
+
     const filteredReviews = useMemo(() => {
         return initialReviews.filter(r => {
+            const month = r.date.substring(0, 7);
             const matchesCategory = categoryFilter === '전체' || r.category === categoryFilter;
             const matchesSubCategory = subCategoryFilter === '전체' || r.subCategory === subCategoryFilter;
             const matchesScore = scoreFilter === '전체' || r.score === scoreFilter;
+            const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(month);
             const matchesSearch = !searchTerm ||
                 r.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 r.userName.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesCategory && matchesSubCategory && matchesScore && matchesSearch;
+            return matchesCategory && matchesSubCategory && matchesScore && matchesMonth && matchesSearch;
         });
-    }, [initialReviews, categoryFilter, subCategoryFilter, scoreFilter, searchTerm]);
+    }, [initialReviews, categoryFilter, subCategoryFilter, scoreFilter, selectedMonths, searchTerm]);
 
     const totalPages = Math.ceil(filteredReviews.length / ITEMS_PER_PAGE);
     const paginatedReviews = useMemo(() => {
@@ -36,7 +44,6 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
         return filteredReviews.slice(start, start + ITEMS_PER_PAGE);
     }, [filteredReviews, currentPage]);
 
-    // Star counts for current filter context (or globally)
     const starCounts = useMemo(() => {
         const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         initialReviews.forEach(r => {
@@ -47,7 +54,13 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
         return counts;
     }, [initialReviews]);
 
-    // Available sub-categories based on standard list + what's in data
+    const toggleMonth = (month: string) => {
+        setSelectedMonths(prev =>
+            prev.includes(month) ? prev.filter(m => m !== month) : [...prev, month]
+        );
+        setCurrentPage(1);
+    };
+
     const availableSubCategories = useMemo(() => {
         if (categoryFilter === '전체') {
             const all = Array.from(new Set(initialReviews.map(r => r.subCategory || '미분류'))).sort();
@@ -60,7 +73,6 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
 
     return (
         <div className="space-y-8">
-            {/* Search and Filters */}
             <div className="flex flex-col gap-6 bg-card/50 p-6 rounded-2xl border border-border shadow-2xl">
                 <div className="flex flex-col lg:flex-row gap-4 justify-between">
                     <div className="relative flex-1">
@@ -74,23 +86,54 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                         />
                     </div>
 
-                    {/* Star Rating Dropdown with Counts */}
-                    <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl group hover:border-primary/50 transition-colors">
-                        <Star className="w-4 h-4 text-yellow-500" />
-                        <select
-                            className="bg-transparent text-sm font-black focus:outline-none cursor-pointer appearance-none pr-6"
-                            value={scoreFilter}
-                            onChange={(e) => {
-                                const val = e.target.value;
-                                setScoreFilter(val === '전체' ? '전체' : Number(val));
-                                setCurrentPage(1);
-                            }}
-                        >
-                            <option value="전체">모든 별점 (Total: {initialReviews.length})</option>
-                            {[5, 4, 3, 2, 1].map(s => (
-                                <option key={s} value={s}>{s}점 ({starCounts[s as keyof typeof starCounts]}개)</option>
-                            ))}
-                        </select>
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Month multi-select */}
+                        <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl relative group hover:border-primary/50 transition-colors">
+                            <Calendar className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm font-black whitespace-nowrap">
+                                {selectedMonths.length === 0 ? '모든 기간' : `${selectedMonths.length}개 월`}
+                            </span>
+                            <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl p-2 hidden group-hover:block z-50">
+                                <div className="max-h-60 overflow-y-auto space-y-1">
+                                    <button
+                                        onClick={() => setSelectedMonths([])}
+                                        className="w-full text-left px-2 py-1 text-xs hover:bg-secondary rounded font-bold"
+                                    >
+                                        전체 선택 해제
+                                    </button>
+                                    <div className="border-t border-border my-1" />
+                                    {availableMonths.map(m => (
+                                        <label key={m} className="flex items-center gap-2 px-2 py-1 hover:bg-secondary rounded cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedMonths.includes(m)}
+                                                onChange={() => toggleMonth(m)}
+                                                className="w-3 h-3 rounded bg-zinc-800 border-zinc-700 text-primary"
+                                            />
+                                            <span className="text-xs font-medium">{m}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl group hover:border-primary/50 transition-colors">
+                            <Star className="w-4 h-4 text-yellow-500" />
+                            <select
+                                className="bg-transparent text-sm font-black focus:outline-none cursor-pointer appearance-none pr-6"
+                                value={scoreFilter}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setScoreFilter(val === '전체' ? '전체' : Number(val));
+                                    setCurrentPage(1);
+                                }}
+                            >
+                                <option value="전체">모든 별점 ({initialReviews.length})</option>
+                                {[5, 4, 3, 2, 1].map(s => (
+                                    <option key={s} value={s}>{s}점 ({starCounts[s as keyof typeof starCounts]})</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
 
                     <div className="flex gap-2">
@@ -113,7 +156,6 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                     </div>
                 </div>
 
-                {/* Dynamic Sub-category Filter */}
                 <div className="flex flex-wrap gap-2 items-center">
                     <span className="text-[10px] font-black text-primary uppercase tracking-widest mr-2">상세 필터:</span>
                     <button
@@ -140,7 +182,6 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                 </div>
             </div>
 
-            {/* Table */}
             <div className="bg-card border border-border rounded-xl overflow-hidden shadow-2xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -155,7 +196,7 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                         </thead>
                         <tbody className="divide-y divide-border/50">
                             {paginatedReviews.map((r) => (
-                                <tr key={r.id} className="hover:bg-white/5 transition-all group border-l-2 border-l-transparent hover:border-l-primary">
+                                <tr key={`${r.store}-${r.id}`} className="hover:bg-white/5 transition-all group border-l-2 border-l-transparent hover:border-l-primary">
                                     <td className="px-8 py-4 whitespace-nowrap text-xs font-bold text-muted-foreground">{new Date(r.date).toLocaleDateString()}</td>
                                     <td className="px-8 py-4">
                                         <div className="flex flex-col">
@@ -195,7 +236,6 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                     </table>
                 </div>
 
-                {/* Pagination */}
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between px-8 py-6 border-t border-border bg-secondary/10">
                         <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">

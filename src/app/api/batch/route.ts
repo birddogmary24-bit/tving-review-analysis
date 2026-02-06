@@ -21,10 +21,10 @@ export async function GET(request: Request) {
     }
 
     try {
-        // Fetch substantially more reviews to reach the target volume
+        // Daily update: fetch ~2000 reviews to capture new voices
         const [gpReviews, asReviews] = await Promise.all([
-            fetchGooglePlayReviews('net.cj.cjhv.gs.tving', 30), // Increased to 30 pages (~3000 reviews)
-            fetchAppStoreReviews('400101401', 10)         // App Store max pages (up to ~500 reviews)
+            fetchGooglePlayReviews('net.cj.cjhv.gs.tving', 15), // ~1500 reviews
+            fetchAppStoreReviews('400101401', 5)          // ~250 reviews
         ]);
 
         const allReviews = [...gpReviews, ...asReviews];
