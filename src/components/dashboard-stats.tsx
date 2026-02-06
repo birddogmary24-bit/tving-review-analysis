@@ -14,6 +14,7 @@ interface DashboardStatsProps {
 export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps) {
     const [selectedSubCat, setSelectedSubCat] = useState<string>('전체');
     const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // Empty means all
+    const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
 
     const subCategories = useMemo(() => {
         return Array.from(new Set(allReviews.map(r => r.subCategory))).filter(Boolean).sort();
@@ -115,33 +116,50 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
 
                     <div className="flex flex-wrap items-center gap-4">
                         {/* Month multi-select placeholder style */}
-                        <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl relative group">
-                            <Calendar className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-sm font-black">
-                                {selectedMonths.length === 0 ? '모든 기간' : `${selectedMonths.length}개 월 선택됨`}
-                            </span>
-                            <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl p-2 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-2">
-                                <div className="max-h-60 overflow-y-auto space-y-1">
-                                    <button
-                                        onClick={() => setSelectedMonths([])}
-                                        className="w-full text-left px-2 py-1 text-xs hover:bg-secondary rounded font-bold"
-                                    >
-                                        전체 선택 해제
-                                    </button>
-                                    <div className="border-t border-border my-1" />
-                                    {availableMonths.map(m => (
-                                        <label key={m} className="flex items-center gap-2 px-2 py-1 hover:bg-secondary rounded cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedMonths.includes(m)}
-                                                onChange={() => toggleMonth(m)}
-                                                className="w-3 h-3 rounded bg-zinc-800 border-zinc-700"
-                                            />
-                                            <span className="text-xs font-medium">{m}</span>
-                                        </label>
-                                    ))}
+                        <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl relative">
+                            <button
+                                onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
+                                className="flex items-center gap-2 focus:outline-none"
+                            >
+                                <Calendar className="w-4 h-4 text-muted-foreground" />
+                                <span className="text-sm font-black">
+                                    {selectedMonths.length === 0 ? '모든 기간' : `${selectedMonths.length}개 월 선택됨`}
+                                </span>
+                            </button>
+                            {isDateFilterOpen && (
+                                <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                                    <div className="max-h-60 overflow-y-auto space-y-1">
+                                        <button
+                                            onClick={() => {
+                                                setSelectedMonths([]);
+                                                setIsDateFilterOpen(false);
+                                            }}
+                                            className="w-full text-left px-2 py-1 text-xs hover:bg-secondary rounded font-bold"
+                                        >
+                                            전체 선택 해제
+                                        </button>
+                                        <div className="border-t border-border my-1" />
+                                        {availableMonths.map(m => (
+                                            <label key={m} className="flex items-center gap-2 px-2 py-1 hover:bg-secondary rounded cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedMonths.includes(m)}
+                                                    onChange={() => toggleMonth(m)}
+                                                    className="w-3 h-3 rounded bg-zinc-800 border-zinc-700"
+                                                />
+                                                <span className="text-xs font-medium">{m}</span>
+                                            </label>
+                                        ))}
+                                        <div className="border-t border-border my-1" />
+                                        <button
+                                            onClick={() => setIsDateFilterOpen(false)}
+                                            className="w-full text-center py-1.5 mt-1 bg-primary text-white text-[10px] font-black rounded-lg hover:opacity-90 transition-opacity"
+                                        >
+                                            닫기
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl">
