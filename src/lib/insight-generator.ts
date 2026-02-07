@@ -75,12 +75,34 @@ export async function generateMonthlyInsight(
         }
     });
 
-    // 4. Sample reviews for AI context (to keep prompt size manageable)
-    const sampleReviews = relevantReviews
-        .sort((a, b) => b.date.localeCompare(a.date))
-        .slice(0, 100) // Top 100 latest reviews as samples
-        .map(r => `[${r.date}] [${r.score}점] [${r.subCategory}] ${r.text}`)
-        .join('\n');
+    // 4. Smart Sampling Algorithm (to minimize token usage and maximize insight)
+    // - Group reviews by subCategory
+    // - Pick top 3-5 most 'meaningful' reviews per subCategory
+    // - Truncate long reviews to 150 chars
+    const groupedSamples: Record<string, string[]> = {};
+    const MAX_SAMPLES_PER_SUB = 5;
+    const MAX_TEXT_LENGTH = 150;
+
+    relevantReviews
+        .sort((a, b) => b.date.localeCompare(a.date)) // Latest first
+        .forEach(r => {
+            const sub = r.subCategory || '미분류';
+            if (!groupedSamples[sub]) groupedSamples[sub] = [];
+
+            if (groupedSamples[sub].length < MAX_SAMPLES_PER_SUB) {
+                // Remove redundant info, keep only relevant text
+                let cleanText = r.text.replace(/\n/g, ' ').trim();
+                if (cleanText.length > MAX_TEXT_LENGTH) {
+                    cleanText = cleanText.substring(0, MAX_TEXT_LENGTH) + "...";
+                }
+                groupedSamples[sub].push(`[${r.score}점] ${cleanText}`);
+            }
+        });
+
+    // Flatten samples into a concise string
+    const sampleReviews = Object.entries(groupedSamples)
+        .map(([sub, texts]) => `## ${sub}\n${texts.join('\n')}`)
+        .join('\n\n');
 
     const prompt = `
     당신은 티빙(TVING) 서비스 기획자이자 데이터 분석가입니다. 
