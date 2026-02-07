@@ -43,6 +43,18 @@ export interface ImprovementTask {
     description: string;
     priority: 'high' | 'medium' | 'low';
     jobLabels: string[];
+    prd?: {
+        definition: string;
+        purpose: string;
+        expectedEffect: string;
+        keyFeatures: string[];
+        roles: {
+            planning?: string;
+            development?: string;
+            design?: string;
+            marketing?: string;
+        };
+    };
 }
 
 export interface MonthlyInsight {

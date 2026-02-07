@@ -120,25 +120,42 @@ export async function generateMonthlyInsight(
 
     [요구사항]
     1. 전체적인 트렌드 요약 (summary)
-    2. 긍정 인사이트 (positiveInsights): 주요 칭찬 요소 3-5개. 
+    2. 긍정 인사이트 (positiveInsights): 주요 칭찬 요소 10개 내외. (데이터가 부족하면 가능한 많이 추출)
        - 각 항목별 개수(count), 심각도/강도(severity: low/medium/high), 급증 여부(isSpiked) 포함
-       - jobLabels: 이 인사이트와 연관된 직무 라벨을 리스트에서 골라 1~5개 포함
-       - relatedSubCategories: 이 인사이트를 뒷받침하는 실제 리뷰의 서브카테고리 이름을 원본 데이터에서 찾아 포함 (예: ["오리지널 콘텐츠", "콘텐츠 다양성"])
-    3. 부정 인사이트 (negativeInsights): 주요 불만 요소 3-5개. 
+       - jobLabels: 연관된 직무 라벨 1~5개
+       - relatedSubCategories: 실제 리뷰 서브카테고리 이름 포함
+    3. 부정 인사이트 (negativeInsights): 주요 불만 요소 10개 내외. (데이터가 부족하면 가능한 많이 추출)
        - 각 항목별 개수(count), 심각도/강도(severity: low/medium/high), 급증 여부(isSpiked) 포함
-       - jobLabels: 연관된 직무 라벨 1~5개 포함
-       - relatedSubCategories: 실제 리뷰 서브카테고리 이름 포함 (예: ["플레이어 오류", "앱 안정성"])
-    4. 제안 기능/개선 과제 (tasks): 서술형이 아닌 실행 가능한 Task 형식으로 3-5개 제안. 
+       - jobLabels: 연관된 직무 라벨 1~5개
+       - relatedSubCategories: 실제 리뷰 서브카테고리 이름 포함
+    4. 제안 기능/개선 과제 (tasks): 실행 가능한 Task 형식으로 5-7개 제안. 
        - 우선순위(priority: high/medium/low) 및 연관 직무 라벨(jobLabels) 포함.
+       - prd: 각 태스크에 대한 상세 기획서 초안(PRD)을 아래 구조로 포함
+         {
+           "definition": "해결하려는 문제 및 기능 정의",
+           "purpose": "이 기능을 통해 달성하고자 하는 목적",
+           "expectedEffect": "성공 시 기대되는 효과 (정량적/정성적)",
+           "keyFeatures": [
+             "구체적으로 구현해야 할 핵심 기능 1 (예: 에러 발생 시 자동 재시도 로직)",
+             "구체적으로 구현해야 할 핵심 기능 2 (예: 사용자 피드백 수집 팝업)",
+             "구체적으로 구현해야 할 핵심 기능 3-5개"
+           ],
+           "roles": {
+             "planning": "기획/운영팀에서 해야 할 일 (구체적 액션 아이템)",
+             "development": "개발팀에서 해야 할 일 (구체적 기술 스택 및 구현 방향)",
+             "design": "디자인팀에서 해야 할 일 (구체적 UI/UX 개선 방향)",
+             "marketing": "마케팅팀에서 해야 할 일 (구체적 커뮤니케이션 전략)"
+           }
+         }
 
     [응답 형식]
-    반드시 아래와 같은 JSON 구조로만 응답하세요.
+    반드시 아래와 같은 JSON 구조로만 응답하세요. (불만과 칭찬을 가능한 10개씩 꽉 채워서 분석해주세요)
     {
       "summary": "...",
       "positiveInsights": [
         {
-          "title": "...", 
-          "description": "...", 
+          "title": "요소 제목", 
+          "description": "상세 분석 내용 (1-2문장)", 
           "count": 10, 
           "severity": "medium", 
           "sentiment": "positive", 
@@ -149,8 +166,8 @@ export async function generateMonthlyInsight(
       ],
       "negativeInsights": [
         {
-          "title": "...", 
-          "description": "...", 
+          "title": "요소 제목", 
+          "description": "상세 분석 내용 (1-2문장)", 
           "count": 25, 
           "severity": "high", 
           "sentiment": "negative", 
@@ -160,7 +177,7 @@ export async function generateMonthlyInsight(
         }
       ],
       "tasks": [
-        {"title": "...", "description": "...", "priority": "high", "jobLabels": ["개발"]}
+        {"title": "실행 과제 제목", "description": "상세 실행 가이드", "priority": "high", "jobLabels": ["개발"]}
       ]
     }
     `;

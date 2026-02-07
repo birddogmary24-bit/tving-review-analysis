@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server';
 import { fetchGooglePlayReviews, fetchAppStoreReviews } from '@/lib/scrapers';
 import { categorizeReviewsBatch } from '@/lib/ai';
-import { saveReviews, loadReviews, canUpdateToday } from '@/lib/storage';
+import { saveReviews, loadReviews, canUpdateToday, loadInsights, saveInsights } from '@/lib/storage';
+import { MonthlyInsight } from '@/lib/types';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const secret = searchParams.get('secret');
 
+    /*
     if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    */
 
+    /* Limit check removed as requested by user - password protection is now used.
     const { canUpdate } = await canUpdateToday();
     if (!canUpdate) {
         return NextResponse.json({
@@ -19,6 +23,7 @@ export async function GET(request: Request) {
             message: '오늘은 이미 업데이트가 완료되었습니다.'
         }, { status: 429 });
     }
+    */
 
     try {
         // 1. Fetch existing reviews to skip duplicates
@@ -49,27 +54,26 @@ export async function GET(request: Request) {
         const analyzed = await categorizeReviewsBatch(newReviewsOnly);
         await saveReviews(analyzed);
 
-        // 5. If today is the 1st of the month, generate insights for the previous month
+        // 5. Generate/Refresh insights for the current/previous month
+        console.log('[Insight] Refreshing monthly insights...');
         const now = new Date();
-        if (now.getDate() === 1) {
-            console.log('[Insight] Monthly insight generation triggered...');
-            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const monthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+        // If it's early in the month (before the 5th), keep updating the previous month's report.
+        // Otherwise, focus on the current month.
+        const monthToRefresh = now.getDate() < 5
+            ? `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}` // Previous month
+            : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // Current month
 
-            // We can call the generator directly here since we are already in the server
-            const { generateMonthlyInsight } = await import('@/lib/insight-generator');
-            const { loadInsights, saveInsights } = await import('@/lib/storage');
+        const { generateMonthlyInsight } = await import('@/lib/insight-generator');
 
-            const insight = await generateMonthlyInsight(monthStr, await loadReviews());
-            const existingInsights = await loadInsights();
-            const updatedInsights = [
-                ...existingInsights.filter(i => i.month !== insight.month),
-                insight
-            ].sort((a, b) => b.month.localeCompare(a.month));
+        const insight = await generateMonthlyInsight(monthToRefresh, await loadReviews());
+        const existingInsights = await loadInsights();
+        const updatedInsights = [
+            ...existingInsights.filter((i: MonthlyInsight) => i.month !== insight.month),
+            insight
+        ].sort((a, b) => b.month.localeCompare(a.month));
 
-            await saveInsights(updatedInsights);
-            console.log(`[Insight] Monthly insight for ${monthStr} generated successfully.`);
-        }
+        await saveInsights(updatedInsights);
+        console.log(`[Insight] Monthly insight for ${monthToRefresh} refreshed successfully.`);
 
         return NextResponse.json({
             success: true,

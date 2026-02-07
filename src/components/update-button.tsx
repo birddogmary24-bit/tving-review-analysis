@@ -15,14 +15,14 @@ export function UpdateButton() {
         try {
             const res = await fetch('/api/batch/status');
             const data = await res.json();
-            setCanUpdate(data.canUpdate);
+            setCanUpdate(true); // Limits removed
         } catch (e) {
             setCanUpdate(true);
         }
     };
 
     const handleUpdate = async () => {
-        if (loading || canUpdate === false) return;
+        if (loading) return;
 
         const password = prompt("관리자 비밀번호를 입력하세요:");
         if (password !== "tving2026") {
@@ -30,7 +30,7 @@ export function UpdateButton() {
             return;
         }
 
-        const confirmUpdate = confirm("데이터 업데이트를 시작하시겠습니까? (하루에 1회만 가능합니다)");
+        const confirmUpdate = confirm("데이터 업데이트를 시작하시겠습니까?");
         if (!confirmUpdate) return;
 
         setLoading(true);
@@ -45,27 +45,16 @@ export function UpdateButton() {
                 alert("이미 다른 사용자가 오늘 업데이트를 완료했습니다. 내일 다시 시도해주세요.");
                 setCanUpdate(false);
             } else {
-                alert('업데이트 중 오류가 발생했습니다.');
+                alert(`업데이트 중 오류가 발생했습니다: ${data.message || data.error || '상세 정보 없음'}`);
             }
-        } catch (error) {
-            alert('서버와 통신하는 중 오류가 발생했습니다.');
+        } catch (error: any) {
+            console.error('Update error:', error);
+            alert(`업데이트 중 오류가 발생했습니다: ${error.message || '서버 응답 없음'}`);
         } finally {
             setLoading(false);
         }
     };
 
-    if (canUpdate === false) {
-        return (
-            <button
-                disabled
-                className="bg-muted text-muted-foreground px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 cursor-not-allowed opacity-80"
-                title="오늘은 이미 업데이트되었습니다."
-            >
-                <Lock className="w-3 h-3" />
-                오늘 업데이트 완료
-            </button>
-        );
-    }
 
     return (
         <button
