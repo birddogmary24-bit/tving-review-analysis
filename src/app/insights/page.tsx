@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import Layout from '@/components/layout';
 import { loadInsights } from '@/lib/storage';
 import { Lightbulb, TrendingUp, TrendingDown, CheckCircle2, AlertCircle, Calendar, Sparkles, BarChart2 } from 'lucide-react';
@@ -59,17 +60,35 @@ export default async function InsightsPage() {
                         </h2>
                         <div className="space-y-4">
                             {latestInsight.positiveInsights.map((item, idx) => (
-                                <div key={idx} className="group relative bg-[#111] border border-green-500/20 p-6 rounded-3xl hover:border-green-500/50 transition-all duration-300">
+                                <Link
+                                    key={idx}
+                                    href={`/insights/drilldown?month=${latestInsight.month}&title=${encodeURIComponent(item.title)}&categories=${encodeURIComponent(item.relatedSubCategories?.join(',') || '')}`}
+                                    className="block group relative bg-[#111] border border-green-500/20 p-6 rounded-3xl hover:border-green-500/50 transition-all duration-300 transform hover:-translate-y-1"
+                                >
                                     {item.isSpiked && (
-                                        <div className="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-lg shadow-green-500/20 animate-bounce">
+                                        <div className="absolute -top-2 -right-2 bg-green-500 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-lg shadow-green-500/20 animate-bounce z-10">
                                             RECENT SPIKE
                                         </div>
                                     )}
                                     <div className="flex justify-between items-start mb-3">
-                                        <h3 className="text-xl font-black text-white">{item.title}</h3>
+                                        <div className="space-y-1">
+                                            <h3 className="text-xl font-black text-white group-hover:text-green-400 transition-colors">{item.title}</h3>
+                                            <div className="flex flex-wrap gap-1">
+                                                {item.jobLabels?.slice(0, 5).map((label, lidx) => (
+                                                    <span key={lidx} className="text-[9px] font-bold bg-green-500/10 text-green-400 px-1.5 py-0.5 rounded border border-green-500/20">
+                                                        {label}
+                                                    </span>
+                                                ))}
+                                                {item.jobLabels && item.jobLabels.length > 5 && (
+                                                    <span className="text-[9px] font-bold bg-secondary text-muted-foreground px-1.5 py-0.5 rounded border border-border">
+                                                        +{item.jobLabels.length - 5}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                         <span className={`text-[10px] font-black px-2 py-0.5 rounded ${item.severity === 'high' ? 'bg-green-500 text-black' :
-                                                item.severity === 'medium' ? 'bg-green-500/20 text-green-400' :
-                                                    'bg-secondary text-muted-foreground'
+                                            item.severity === 'medium' ? 'bg-green-500/20 text-green-400' :
+                                                'bg-secondary text-muted-foreground'
                                             }`}>
                                             {item.severity.toUpperCase()} IMPACT
                                         </span>
@@ -77,13 +96,16 @@ export default async function InsightsPage() {
                                     <p className="text-sm text-muted-foreground leading-relaxed mb-4 italic">
                                         "{item.description}"
                                     </p>
-                                    <div className="flex items-center gap-4 text-xs">
+                                    <div className="flex items-center justify-between text-xs">
                                         <div className="flex items-center gap-1 font-bold">
                                             <span className="text-green-400">{item.count}</span>
                                             <span className="text-muted-foreground">Reviews</span>
                                         </div>
+                                        <div className="text-green-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                            상세 리뷰 보기 →
+                                        </div>
                                     </div>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     </section>
@@ -95,17 +117,35 @@ export default async function InsightsPage() {
                         </h2>
                         <div className="space-y-4">
                             {latestInsight.negativeInsights.map((item, idx) => (
-                                <div key={idx} className="group relative bg-[#111] border border-primary/20 p-6 rounded-3xl hover:border-primary/50 transition-all duration-300">
+                                <Link
+                                    key={idx}
+                                    href={`/insights/drilldown?month=${latestInsight.month}&title=${encodeURIComponent(item.title)}&categories=${encodeURIComponent(item.relatedSubCategories?.join(',') || '')}`}
+                                    className="block group relative bg-[#111] border border-primary/20 p-6 rounded-3xl hover:border-primary/50 transition-all duration-300 transform hover:-translate-y-1"
+                                >
                                     {item.isSpiked && (
-                                        <div className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg shadow-primary/20 animate-bounce">
+                                        <div className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black px-3 py-1 rounded-full shadow-lg shadow-primary/20 animate-bounce z-10">
                                             RECENT SPIKE
                                         </div>
                                     )}
                                     <div className="flex justify-between items-start mb-3">
-                                        <h3 className="text-xl font-black text-white">{item.title}</h3>
+                                        <div className="space-y-1">
+                                            <h3 className="text-xl font-black text-white group-hover:text-primary transition-colors">{item.title}</h3>
+                                            <div className="flex flex-wrap gap-1">
+                                                {item.jobLabels?.slice(0, 5).map((label, lidx) => (
+                                                    <span key={lidx} className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/20">
+                                                        {label}
+                                                    </span>
+                                                ))}
+                                                {item.jobLabels && item.jobLabels.length > 5 && (
+                                                    <span className="text-[9px] font-bold bg-secondary text-muted-foreground px-1.5 py-0.5 rounded border border-border">
+                                                        +{item.jobLabels.length - 5}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                         <span className={`text-[10px] font-black px-2 py-0.5 rounded ${item.severity === 'high' ? 'bg-primary text-white' :
-                                                item.severity === 'medium' ? 'bg-primary/20 text-primary' :
-                                                    'bg-secondary text-muted-foreground'
+                                            item.severity === 'medium' ? 'bg-primary/20 text-primary' :
+                                                'bg-secondary text-muted-foreground'
                                             }`}>
                                             {item.severity.toUpperCase()} IMPACT
                                         </span>
@@ -113,13 +153,16 @@ export default async function InsightsPage() {
                                     <p className="text-sm text-muted-foreground leading-relaxed mb-4 italic">
                                         "{item.description}"
                                     </p>
-                                    <div className="flex items-center gap-4 text-xs">
+                                    <div className="flex items-center justify-between text-xs">
                                         <div className="flex items-center gap-1 font-bold">
                                             <span className="text-primary">{item.count}</span>
                                             <span className="text-muted-foreground">Reviews</span>
                                         </div>
+                                        <div className="text-primary font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                                            상세 리뷰 보기 →
+                                        </div>
                                     </div>
-                                </div>
+                                </Link>
                             ))}
                         </div>
                     </section>
@@ -140,19 +183,35 @@ export default async function InsightsPage() {
                         {latestInsight.tasks.map((task, idx) => (
                             <div key={idx} className="bg-card border border-border p-6 rounded-3xl space-y-4 relative overflow-hidden group">
                                 <div className={`absolute top-0 right-0 w-2 h-full ${task.priority === 'high' ? 'bg-primary' :
-                                        task.priority === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
+                                    task.priority === 'medium' ? 'bg-yellow-500' : 'bg-blue-500'
                                     }`} />
-                                <div className="flex items-center gap-2">
-                                    {task.priority === 'high' ? (
-                                        <AlertCircle className="w-5 h-5 text-primary" />
-                                    ) : (
-                                        <CheckCircle2 className="w-5 h-5 text-green-500" />
-                                    )}
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                        {task.priority} priority
-                                    </span>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        {task.priority === 'high' ? (
+                                            <AlertCircle className="w-5 h-5 text-primary" />
+                                        ) : (
+                                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                        )}
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                            {task.priority} priority
+                                        </span>
+                                    </div>
                                 </div>
-                                <h3 className="text-lg font-bold leading-tight">{task.title}</h3>
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-bold leading-tight">{task.title}</h3>
+                                    <div className="flex flex-wrap gap-1">
+                                        {task.jobLabels?.slice(0, 5).map((label, lidx) => (
+                                            <span key={lidx} className="text-[9px] font-bold bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded border border-blue-500/20">
+                                                {label}
+                                            </span>
+                                        ))}
+                                        {task.jobLabels && task.jobLabels.length > 5 && (
+                                            <span className="text-[9px] font-bold bg-secondary text-muted-foreground px-1.5 py-0.5 rounded border border-border">
+                                                +{task.jobLabels.length - 5}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
                                 <p className="text-sm text-muted-foreground leading-relaxed">
                                     {task.description}
                                 </p>

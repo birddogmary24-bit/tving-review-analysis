@@ -116,24 +116,51 @@ export async function generateMonthlyInsight(
     [최근 리뷰 샘플]:
     ${sampleReviews}
 
+    [직무 라벨 리스트]: 개발, 기획/운영, 디자인, 고객서비스, 대외정책, 콘텐츠, 기타
+
     [요구사항]
     1. 전체적인 트렌드 요약 (summary)
-    2. 긍정 인사이트 (positiveInsights): 주요 칭찬 요소 3-5개. 각 항목별 개수(count), 심각도/강도(severity: low/medium/high), 급증 여부(isSpiked) 포함
-    3. 부정 인사이트 (negativeInsights): 주요 불만 요소 3-5개. 각 항목별 개수(count), 심각도/강도(severity: low/medium/high), 급증 여부(isSpiked) 포함
-    4. 제안 기능/개선 과제 (tasks): 서술형이 아닌 실행 가능한 Task 형식으로 3-5개 제안. 우선순위(priority) 포함.
+    2. 긍정 인사이트 (positiveInsights): 주요 칭찬 요소 3-5개. 
+       - 각 항목별 개수(count), 심각도/강도(severity: low/medium/high), 급증 여부(isSpiked) 포함
+       - jobLabels: 이 인사이트와 연관된 직무 라벨을 리스트에서 골라 1~5개 포함
+       - relatedSubCategories: 이 인사이트를 뒷받침하는 실제 리뷰의 서브카테고리 이름을 원본 데이터에서 찾아 포함 (예: ["오리지널 콘텐츠", "콘텐츠 다양성"])
+    3. 부정 인사이트 (negativeInsights): 주요 불만 요소 3-5개. 
+       - 각 항목별 개수(count), 심각도/강도(severity: low/medium/high), 급증 여부(isSpiked) 포함
+       - jobLabels: 연관된 직무 라벨 1~5개 포함
+       - relatedSubCategories: 실제 리뷰 서브카테고리 이름 포함 (예: ["플레이어 오류", "앱 안정성"])
+    4. 제안 기능/개선 과제 (tasks): 서술형이 아닌 실행 가능한 Task 형식으로 3-5개 제안. 
+       - 우선순위(priority: high/medium/low) 및 연관 직무 라벨(jobLabels) 포함.
 
     [응답 형식]
     반드시 아래와 같은 JSON 구조로만 응답하세요.
     {
       "summary": "...",
       "positiveInsights": [
-        {"title": "...", "description": "...", "count": 10, "severity": "medium", "sentiment": "positive", "isSpiked": false}
+        {
+          "title": "...", 
+          "description": "...", 
+          "count": 10, 
+          "severity": "medium", 
+          "sentiment": "positive", 
+          "isSpiked": false,
+          "jobLabels": ["기획/운영", "디자인"],
+          "relatedSubCategories": ["오리지널 콘텐츠"]
+        }
       ],
       "negativeInsights": [
-        {"title": "...", "description": "...", "count": 25, "severity": "high", "sentiment": "negative", "isSpiked": true}
+        {
+          "title": "...", 
+          "description": "...", 
+          "count": 25, 
+          "severity": "high", 
+          "sentiment": "negative", 
+          "isSpiked": true,
+          "jobLabels": ["개발", "고객서비스"],
+          "relatedSubCategories": ["플레이어 오류", "앱 안정성"]
+        }
       ],
       "tasks": [
-        {"title": "...", "description": "...", "priority": "high"}
+        {"title": "...", "description": "...", "priority": "high", "jobLabels": ["개발"]}
       ]
     }
     `;

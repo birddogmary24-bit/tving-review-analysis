@@ -24,6 +24,12 @@ export function UpdateButton() {
     const handleUpdate = async () => {
         if (loading || canUpdate === false) return;
 
+        const password = prompt("관리자 비밀번호를 입력하세요:");
+        if (password !== "tving2026") {
+            alert("비밀번호가 틀렸습니다.");
+            return;
+        }
+
         const confirmUpdate = confirm("데이터 업데이트를 시작하시겠습니까? (하루에 1회만 가능합니다)");
         if (!confirmUpdate) return;
 

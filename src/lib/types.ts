@@ -34,12 +34,15 @@ export interface InsightItem {
     severity: 'low' | 'medium' | 'high';
     sentiment: 'positive' | 'negative';
     isSpiked: boolean;
+    jobLabels: string[]; // 개발, 기획/운영, 디자인, 고객서비스, 대외정책, 콘텐츠, 기타
+    relatedSubCategories: string[]; // 연관된 리뷰 서브카테고리 리스트
 }
 
 export interface ImprovementTask {
     title: string;
     description: string;
     priority: 'high' | 'medium' | 'low';
+    jobLabels: string[];
 }
 
 export interface MonthlyInsight {
