@@ -7,9 +7,11 @@ export async function GET(request: Request) {
     const secret = searchParams.get('secret');
     const targetMonth = searchParams.get('month'); // YYYY-MM
 
+    /*
     if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    */
 
     try {
         const allReviews = await loadReviews();
