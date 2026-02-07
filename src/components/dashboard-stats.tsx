@@ -28,7 +28,7 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
     const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     const filteredStats = useMemo(() => {
-        let stats = initialStats;
+        let stats = initialStats.filter(s => s.month >= '2025-01');
 
         // Subcategory Filter
         if (selectedSubCat !== '전체') {

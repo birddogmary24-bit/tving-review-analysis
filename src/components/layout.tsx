@@ -12,6 +12,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <nav className="ml-10 flex gap-6">
                     <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">대시보드</Link>
                     <Link href="/reviews" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">전체 리뷰</Link>
+                    <Link href="/insights" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">인사이트</Link>
                 </nav>
                 <div className="ml-auto flex items-center gap-4">
                     <UpdateButton />

@@ -49,6 +49,28 @@ export async function GET(request: Request) {
         const analyzed = await categorizeReviewsBatch(newReviewsOnly);
         await saveReviews(analyzed);
 
+        // 5. If today is the 1st of the month, generate insights for the previous month
+        const now = new Date();
+        if (now.getDate() === 1) {
+            console.log('[Insight] Monthly insight generation triggered...');
+            const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const monthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, '0')}`;
+
+            // We can call the generator directly here since we are already in the server
+            const { generateMonthlyInsight } = await import('@/lib/insight-generator');
+            const { loadInsights, saveInsights } = await import('@/lib/storage');
+
+            const insight = await generateMonthlyInsight(monthStr, await loadReviews());
+            const existingInsights = await loadInsights();
+            const updatedInsights = [
+                ...existingInsights.filter(i => i.month !== insight.month),
+                insight
+            ].sort((a, b) => b.month.localeCompare(a.month));
+
+            await saveInsights(updatedInsights);
+            console.log(`[Insight] Monthly insight for ${monthStr} generated successfully.`);
+        }
+
         return NextResponse.json({
             success: true,
             total_fetched: allFetched.length,

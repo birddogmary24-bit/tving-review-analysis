@@ -1,11 +1,12 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { Storage } from '@google-cloud/storage';
-import { AnalyzedReview, MonthlyStats } from './types';
+import { AnalyzedReview, MonthlyStats, MonthlyInsight } from './types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const REVIEWS_FILE = path.join(DATA_DIR, 'reviews.json');
 const STATUS_FILE = path.join(DATA_DIR, 'status.json');
+const INSIGHTS_FILE = path.join(DATA_DIR, 'insights.json');
 
 // GCS Setting
 const bucketName = process.env.GCS_BUCKET_NAME;
@@ -100,4 +101,29 @@ export async function getMonthlyStats(): Promise<MonthlyStats[]> {
     });
 
     return Object.values(statsMap).sort((a, b) => b.month.localeCompare(a.month));
+}
+
+export async function saveInsights(insights: MonthlyInsight[]): Promise<void> {
+    if (await isProduction()) {
+        const bucket = storage.bucket(bucketName!);
+        await bucket.file('insights.json').save(JSON.stringify(insights));
+    } else {
+        await fs.mkdir(DATA_DIR, { recursive: true });
+        await fs.writeFile(INSIGHTS_FILE, JSON.stringify(insights, null, 2));
+    }
+}
+
+export async function loadInsights(): Promise<MonthlyInsight[]> {
+    try {
+        if (await isProduction()) {
+            const bucket = storage.bucket(bucketName!);
+            const [content] = await bucket.file('insights.json').download();
+            return JSON.parse(content.toString());
+        } else {
+            const data = await fs.readFile(INSIGHTS_FILE, 'utf-8');
+            return JSON.parse(data);
+        }
+    } catch (e) {
+        return [];
+    }
 }

@@ -27,3 +27,26 @@ export interface MonthlyStats {
     others: number;
     total: number;
 }
+export interface InsightItem {
+    title: string;
+    description: string;
+    count: number;
+    severity: 'low' | 'medium' | 'high';
+    sentiment: 'positive' | 'negative';
+    isSpiked: boolean;
+}
+
+export interface ImprovementTask {
+    title: string;
+    description: string;
+    priority: 'high' | 'medium' | 'low';
+}
+
+export interface MonthlyInsight {
+    month: string; // YYYY-MM
+    summary: string;
+    positiveInsights: InsightItem[];
+    negativeInsights: InsightItem[];
+    tasks: ImprovementTask[];
+    generatedAt: string;
+}
