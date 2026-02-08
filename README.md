@@ -30,8 +30,3 @@
 - **DB**: Cloud Run의 휘발성 스토리지를 대신해 `src/lib/storage.ts`에서 Google Cloud Storage나 Firestore로 저장 로직을 변경하는 것을 권장합니다.
 - **자동화**: Cloud Scheduler를 사용하여 매월 1일 `0 0 1 * *` 주기로 배치 API를 호출하세요.
   - URL: `https://your-service-url/api/batch?secret=your_cron_secret`
-
-## 비용 분석 (GCP 기준)
-- **Cloud Run / Scheduler**: 월 1회 실행 시 무료 티어 범위 내에서 **0원**에 가깝습니다.
-- **Gemini API**: 1.5 Flash 사용 시 비용이 발생하지 않거나 매우 저렴합니다.
-- **Storage**: 텍스트 데이터 위주이므로 저장 비용은 월 몇 십원 수준입니다.
