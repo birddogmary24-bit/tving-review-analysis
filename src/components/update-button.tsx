@@ -25,17 +25,14 @@ export function UpdateButton() {
         if (loading) return;
 
         const password = prompt("관리자 비밀번호를 입력하세요:");
-        if (password !== "tving2026") {
-            alert("비밀번호가 틀렸습니다.");
-            return;
-        }
+        if (!password) return;
 
         const confirmUpdate = confirm("데이터 업데이트를 시작하시겠습니까?");
         if (!confirmUpdate) return;
 
         setLoading(true);
         try {
-            const res = await fetch('/api/batch');
+            const res = await fetch(`/api/batch?password=${encodeURIComponent(password)}`);
             const data = await res.json();
 
             if (data.success) {

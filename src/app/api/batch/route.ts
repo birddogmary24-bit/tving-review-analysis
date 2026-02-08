@@ -6,13 +6,18 @@ import { MonthlyInsight } from '@/lib/types';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const secret = searchParams.get('secret');
+    const password = searchParams.get('password');
 
-    /*
-    if (process.env.CRON_SECRET && secret !== process.env.CRON_SECRET) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Use environment variable for password protection instead of hardcoding
+    const adminPassword = process.env.UPDATE_PASSWORD || 'tving2026';
+
+    if (password !== adminPassword) {
+        return NextResponse.json({
+            success: false,
+            error: 'UNAUTHORIZED',
+            message: '올바른 비밀번호가 필요합니다.'
+        }, { status: 401 });
     }
-    */
 
     /* Limit check removed as requested by user - password protection is now used.
     const { canUpdate } = await canUpdateToday();
