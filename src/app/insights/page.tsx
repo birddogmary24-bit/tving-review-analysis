@@ -17,13 +17,26 @@ export default async function InsightsPage() {
     /**
      * 카운트 산정 기준 (Standard for Review Count):
      * 특정 인사이트와 연관된 '실제 리뷰'의 개수를 보여주기 위해 
-     * AI가 분석한 '관련 서브 카테고리(relatedSubCategories)'와 '해당 월'이 일치하는 
+     * AI가 분석한 '관련 서브 카테고리(relatedSubCategories)'와 '최근 6개월' 데이터가 일치하는 
      * 원본 리뷰 데이터의 개수를 실시간으로 집계하여 노출합니다.
      */
     const getCalculatedCount = (month: string, relatedCategories: string[]) => {
+        // Calculate 6 months range
+        const targetDate = new Date(month + "-01");
+        const sixMonthsAgo = new Date(targetDate);
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+
+        const formatMonth = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const sixMonthsRange: string[] = [];
+        for (let i = 0; i < 6; i++) {
+            const d = new Date(sixMonthsAgo);
+            d.setMonth(d.getMonth() + i);
+            sixMonthsRange.push(formatMonth(d));
+        }
+
         return allReviews.filter(r => {
             const rMonth = r.date.substring(0, 7);
-            const matchesMonth = rMonth === month;
+            const matchesMonth = sixMonthsRange.includes(rMonth); // Changed to 6 months
             const matchesCategory = relatedCategories.length === 0 ||
                 (r.subCategory && relatedCategories.includes(r.subCategory));
             return matchesMonth && matchesCategory;

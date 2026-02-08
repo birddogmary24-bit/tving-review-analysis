@@ -17,10 +17,23 @@ export default async function InsightDrilldownPage(props: DrilldownPageProps) {
 
     const allReviews = await loadReviews();
 
-    // Filter reviews by month range (current month) and categories
+    // Calculate 6 months range for the target month
+    const targetDate = new Date(month + "-01");
+    const sixMonthsAgo = new Date(targetDate);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+
+    const formatMonth = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const sixMonthsRange: string[] = [];
+    for (let i = 0; i < 6; i++) {
+        const d = new Date(sixMonthsAgo);
+        d.setMonth(d.getMonth() + i);
+        sixMonthsRange.push(formatMonth(d));
+    }
+
+    // Filter reviews by 6 months range and categories
     const filteredReviews = allReviews.filter(r => {
         const rMonth = r.date.substring(0, 7);
-        const matchesMonth = rMonth === month;
+        const matchesMonth = sixMonthsRange.includes(rMonth); // Changed to 6 months
         const matchesCategory = categories.length === 0 || (r.subCategory && categories.includes(r.subCategory));
         return matchesMonth && matchesCategory;
     }).sort((a, b) => b.date.localeCompare(a.date));
@@ -96,8 +109,8 @@ export default async function InsightDrilldownPage(props: DrilldownPageProps) {
                                             {review.category}
                                         </span>
                                         <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded tracking-tight ${review.category === '불만' ? 'bg-primary/10 text-primary' :
-                                                review.category === '칭찬' ? 'bg-green-500/10 text-green-400' :
-                                                    'bg-blue-500/10 text-blue-400'
+                                            review.category === '칭찬' ? 'bg-green-500/10 text-green-400' :
+                                                'bg-blue-500/10 text-blue-400'
                                             }`}>
                                             {review.subCategory || '미분류'}
                                         </span>
