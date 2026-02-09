@@ -33,7 +33,15 @@ export function UpdateButton() {
         setLoading(true);
         try {
             const res = await fetch(`/api/batch?password=${encodeURIComponent(password)}`);
-            const data = await res.json();
+
+            let data;
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                data = await res.json();
+            } else {
+                const text = await res.text();
+                throw new Error(`서버응답이 올바르지 않습니다. (Status: ${res.status}). ${text.substring(0, 50)}... 서버 타임아웃일 가능성이 높습니다.`);
+            }
 
             if (data.success) {
                 alert(`${data.count}개의 새로운 리뷰를 성공적으로 업데이트했습니다.`);
@@ -41,6 +49,8 @@ export function UpdateButton() {
             } else if (data.error === 'ALREADY_UPDATED') {
                 alert("이미 다른 사용자가 오늘 업데이트를 완료했습니다. 내일 다시 시도해주세요.");
                 setCanUpdate(false);
+            } else if (data.error === 'UNAUTHORIZED') {
+                alert("비밀번호가 올바르지 않습니다.");
             } else {
                 alert(`업데이트 중 오류가 발생했습니다: ${data.message || data.error || '상세 정보 없음'}`);
             }

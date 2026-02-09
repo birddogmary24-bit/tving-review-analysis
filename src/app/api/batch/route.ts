@@ -4,6 +4,8 @@ import { categorizeReviewsBatch } from '@/lib/ai';
 import { saveReviews, loadReviews, canUpdateToday, loadInsights, saveInsights } from '@/lib/storage';
 import { MonthlyInsight } from '@/lib/types';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const password = searchParams.get('password');
@@ -46,31 +48,26 @@ export async function GET(request: Request) {
         // 3. Filter only NEW reviews that haven't been analyzed yet
         const newReviewsOnly = allFetched.filter(r => !existingIds.has(`${r.store}-${r.id}`));
 
-        if (newReviewsOnly.length === 0) {
-            return NextResponse.json({
-                success: true,
-                total_fetched: allFetched.length,
-                count: 0,
-                message: '새로운 리뷰가 없어 분석을 건너뛰었습니다.'
-            });
+        if (newReviewsOnly.length > 0) {
+            // 4. Analyze ONLY the new reviews (Huge cost saving!)
+            const analyzed = await categorizeReviewsBatch(newReviewsOnly);
+            await saveReviews(analyzed);
+            console.log(`[Batch] Analyzed ${analyzed.length} new reviews.`);
+        } else {
+            console.log('[Batch] No new reviews to analyze.');
         }
 
-        // 4. Analyze ONLY the new reviews (Huge cost saving!)
-        const analyzed = await categorizeReviewsBatch(newReviewsOnly);
-        await saveReviews(analyzed);
-
-        // 5. Generate/Refresh insights for the current/previous month
+        // 5. Generate/Refresh insights for the current/previous month (Always do this to ensure data consistency)
         console.log('[Insight] Refreshing monthly insights...');
         const now = new Date();
-        // If it's early in the month (before the 5th), keep updating the previous month's report.
-        // Otherwise, focus on the current month.
         const monthToRefresh = now.getDate() < 5
             ? `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}` // Previous month
             : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; // Current month
 
         const { generateMonthlyInsight } = await import('@/lib/insight-generator');
+        const allReviewsAfterUpdate = await loadReviews();
+        const insight = await generateMonthlyInsight(monthToRefresh, allReviewsAfterUpdate);
 
-        const insight = await generateMonthlyInsight(monthToRefresh, await loadReviews());
         const existingInsights = await loadInsights();
         const updatedInsights = [
             ...existingInsights.filter((i: MonthlyInsight) => i.month !== insight.month),
@@ -83,8 +80,10 @@ export async function GET(request: Request) {
         return NextResponse.json({
             success: true,
             total_fetched: allFetched.length,
-            count: analyzed.length,
-            message: `${analyzed.length}개의 새로운 리뷰 분석이 완료되었습니다.`
+            count: newReviewsOnly.length,
+            message: newReviewsOnly.length > 0
+                ? `${newReviewsOnly.length}개의 새로운 리뷰 분석 및 인사이트 갱신이 완료되었습니다.`
+                : '새로운 리뷰는 없으나 최신 데이터를 바탕으로 인사이트를 갱신했습니다.'
         });
     } catch (error) {
         console.error('Batch processing failed:', error);

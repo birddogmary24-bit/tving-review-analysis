@@ -5,106 +5,106 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const MODEL_NAME = "gemini-2.0-flash";
 
 export async function generateMonthlyInsight(
-    month: string,
-    allReviews: AnalyzedReview[]
+  month: string,
+  allReviews: AnalyzedReview[]
 ): Promise<MonthlyInsight> {
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+  const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
-    // 1. Get range dates
-    const targetDate = new Date(month + "-01");
+  // 1. Get range dates
+  const targetDate = new Date(month + "-01");
 
-    // Last 6 months range
-    const sixMonthsAgo = new Date(targetDate);
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+  // Last 6 months range
+  const sixMonthsAgo = new Date(targetDate);
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
 
-    // Last 3 months range (for spikes)
-    const threeMonthsAgo = new Date(targetDate);
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 2);
+  // Last 3 months range (for spikes)
+  const threeMonthsAgo = new Date(targetDate);
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 2);
 
-    const formatMonth = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const formatMonth = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-    const sixMonthsRange: string[] = [];
-    for (let i = 0; i < 6; i++) {
-        const d = new Date(sixMonthsAgo);
-        d.setMonth(d.getMonth() + i);
-        sixMonthsRange.push(formatMonth(d));
+  const sixMonthsRange: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(sixMonthsAgo);
+    d.setMonth(d.getMonth() + i);
+    sixMonthsRange.push(formatMonth(d));
+  }
+
+  const currentPeriod = sixMonthsRange.slice(3); // Last 3 months
+  const previousPeriod = sixMonthsRange.slice(0, 3); // 3-6 months ago
+
+  // 2. Filter reviews
+  const relevantReviews = allReviews.filter(r => {
+    const rMonth = r.date.substring(0, 7);
+    return sixMonthsRange.includes(rMonth);
+  });
+
+  // 3. Prepare summary data for AI
+  const stats: any = {
+    total: relevantReviews.length,
+    positive: relevantReviews.filter(r => r.score >= 3).length,
+    negative: relevantReviews.filter(r => r.score < 3).length,
+    subCategories: {}
+  };
+
+  relevantReviews.forEach(r => {
+    const rMonth = r.date.substring(0, 7);
+    const sub = r.subCategory || '미분류';
+    if (!stats.subCategories[sub]) {
+      stats.subCategories[sub] = { total: 0, positive: 0, negative: 0, months: {} };
     }
+    stats.subCategories[sub].total++;
+    if (r.score >= 3) stats.subCategories[sub].positive++;
+    else stats.subCategories[sub].negative++;
 
-    const currentPeriod = sixMonthsRange.slice(3); // Last 3 months
-    const previousPeriod = sixMonthsRange.slice(0, 3); // 3-6 months ago
+    if (!stats.subCategories[sub].months[rMonth]) stats.subCategories[sub].months[rMonth] = 0;
+    stats.subCategories[sub].months[rMonth]++;
+  });
 
-    // 2. Filter reviews
-    const relevantReviews = allReviews.filter(r => {
-        const rMonth = r.date.substring(0, 7);
-        return sixMonthsRange.includes(rMonth);
-    });
+  // Identify Spikes (simple heuristic: frequency in current 3 months > 1.5x frequency in previous 3 months AND total count > 5)
+  const spikes: string[] = [];
+  Object.keys(stats.subCategories).forEach(sub => {
+    const data = stats.subCategories[sub];
+    let prevCount = 0;
+    let currCount = 0;
+    previousPeriod.forEach(m => prevCount += (data.months[m] || 0));
+    currentPeriod.forEach(m => currCount += (data.months[m] || 0));
 
-    // 3. Prepare summary data for AI
-    const stats: any = {
-        total: relevantReviews.length,
-        positive: relevantReviews.filter(r => r.score >= 3).length,
-        negative: relevantReviews.filter(r => r.score < 3).length,
-        subCategories: {}
-    };
+    if (currCount > prevCount * 1.5 && currCount > 5) {
+      spikes.push(sub);
+    }
+  });
 
-    relevantReviews.forEach(r => {
-        const rMonth = r.date.substring(0, 7);
-        const sub = r.subCategory || '미분류';
-        if (!stats.subCategories[sub]) {
-            stats.subCategories[sub] = { total: 0, positive: 0, negative: 0, months: {} };
+  // 4. Smart Sampling Algorithm (to minimize token usage and maximize insight)
+  // - Group reviews by subCategory
+  // - Pick top 3-5 most 'meaningful' reviews per subCategory
+  // - Truncate long reviews to 150 chars
+  const groupedSamples: Record<string, string[]> = {};
+  const MAX_SAMPLES_PER_SUB = 5;
+  const MAX_TEXT_LENGTH = 150;
+
+  relevantReviews
+    .sort((a, b) => b.date.localeCompare(a.date)) // Latest first
+    .forEach(r => {
+      const sub = r.subCategory || '미분류';
+      if (!groupedSamples[sub]) groupedSamples[sub] = [];
+
+      if (groupedSamples[sub].length < MAX_SAMPLES_PER_SUB) {
+        // Remove redundant info, keep only relevant text
+        let cleanText = r.text.replace(/\n/g, ' ').trim();
+        if (cleanText.length > MAX_TEXT_LENGTH) {
+          cleanText = cleanText.substring(0, MAX_TEXT_LENGTH) + "...";
         }
-        stats.subCategories[sub].total++;
-        if (r.score >= 3) stats.subCategories[sub].positive++;
-        else stats.subCategories[sub].negative++;
-
-        if (!stats.subCategories[sub].months[rMonth]) stats.subCategories[sub].months[rMonth] = 0;
-        stats.subCategories[sub].months[rMonth]++;
+        groupedSamples[sub].push(`[${r.score}점] ${cleanText}`);
+      }
     });
 
-    // Identify Spikes (simple heuristic: frequency in current 3 months > 1.5x frequency in previous 3 months AND total count > 5)
-    const spikes: string[] = [];
-    Object.keys(stats.subCategories).forEach(sub => {
-        const data = stats.subCategories[sub];
-        let prevCount = 0;
-        let currCount = 0;
-        previousPeriod.forEach(m => prevCount += (data.months[m] || 0));
-        currentPeriod.forEach(m => currCount += (data.months[m] || 0));
+  // Flatten samples into a concise string
+  const sampleReviews = Object.entries(groupedSamples)
+    .map(([sub, texts]) => `## ${sub}\n${texts.join('\n')}`)
+    .join('\n\n');
 
-        if (currCount > prevCount * 1.5 && currCount > 5) {
-            spikes.push(sub);
-        }
-    });
-
-    // 4. Smart Sampling Algorithm (to minimize token usage and maximize insight)
-    // - Group reviews by subCategory
-    // - Pick top 3-5 most 'meaningful' reviews per subCategory
-    // - Truncate long reviews to 150 chars
-    const groupedSamples: Record<string, string[]> = {};
-    const MAX_SAMPLES_PER_SUB = 5;
-    const MAX_TEXT_LENGTH = 150;
-
-    relevantReviews
-        .sort((a, b) => b.date.localeCompare(a.date)) // Latest first
-        .forEach(r => {
-            const sub = r.subCategory || '미분류';
-            if (!groupedSamples[sub]) groupedSamples[sub] = [];
-
-            if (groupedSamples[sub].length < MAX_SAMPLES_PER_SUB) {
-                // Remove redundant info, keep only relevant text
-                let cleanText = r.text.replace(/\n/g, ' ').trim();
-                if (cleanText.length > MAX_TEXT_LENGTH) {
-                    cleanText = cleanText.substring(0, MAX_TEXT_LENGTH) + "...";
-                }
-                groupedSamples[sub].push(`[${r.score}점] ${cleanText}`);
-            }
-        });
-
-    // Flatten samples into a concise string
-    const sampleReviews = Object.entries(groupedSamples)
-        .map(([sub, texts]) => `## ${sub}\n${texts.join('\n')}`)
-        .join('\n\n');
-
-    const prompt = `
+  const prompt = `
     당신은 티빙(TVING) 서비스 기획자이자 데이터 분석가입니다. 
     최근 6개월간의 사용자 리뷰 데이터를 바탕으로 인사이트 리포트를 작성해주세요.
 
@@ -182,33 +182,45 @@ export async function generateMonthlyInsight(
     }
     `;
 
-    try {
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text().trim();
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    let text = response.text().trim();
 
-        if (text.includes('```json')) text = text.split('```json')[1].split('```')[0].trim();
-        else if (text.includes('```')) text = text.split('```')[1].split('```')[0].trim();
+    console.log("[Insight] Raw AI Response Type:", typeof text);
 
-        const aiResult = JSON.parse(text);
-
-        return {
-            month,
-            summary: aiResult.summary,
-            positiveInsights: aiResult.positiveInsights,
-            negativeInsights: aiResult.negativeInsights,
-            tasks: aiResult.tasks,
-            generatedAt: new Date().toISOString()
-        };
-    } catch (error) {
-        console.error("[Insight] Error generating insight with AI:", error);
-        return {
-            month,
-            summary: "인사이트 생성 중 오류가 발생했습니다.",
-            positiveInsights: [],
-            negativeInsights: [],
-            tasks: [],
-            generatedAt: new Date().toISOString()
-        };
+    // Clean up markdown code blocks if present
+    if (text.includes('```')) {
+      const matches = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (matches && matches[1]) {
+        text = matches[1].trim();
+      }
     }
+
+    try {
+      const aiResult = JSON.parse(text);
+
+      return {
+        month,
+        summary: aiResult.summary || "분석이 완료되었습니다.",
+        positiveInsights: aiResult.positiveInsights || [],
+        negativeInsights: aiResult.negativeInsights || [],
+        tasks: aiResult.tasks || [],
+        generatedAt: new Date().toISOString()
+      };
+    } catch (parseError) {
+      console.error("[Insight] JSON Parse Error. Raw text snippet:", text.substring(0, 200));
+      throw new Error(`JSON_PARSE_FAILED: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error("[Insight] Error generating insight with AI:", error);
+    return {
+      month,
+      summary: `인사이트 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+      positiveInsights: [],
+      negativeInsights: [],
+      tasks: [],
+      generatedAt: new Date().toISOString()
+    };
+  }
 }

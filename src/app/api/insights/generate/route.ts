@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { generateMonthlyInsight } from '@/lib/insight-generator';
 import { loadReviews, loadInsights, saveInsights } from '@/lib/storage';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const password = searchParams.get('password');
