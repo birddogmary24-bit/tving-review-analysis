@@ -12,15 +12,14 @@ export default async function DashboardPage() {
   const allReviews = await loadReviews();
   const recentReviews = [...allReviews].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
-  // Score-based categorization (user request: 3+ is 칭찬, 1-2 is 불만)
+  // Pre-compute summary values server-side (no need to send all reviews to client)
   const complimentsCount = allReviews.filter(r => r.score >= 3).length;
   const complaintsCount = allReviews.filter(r => r.score <= 2).length;
+  const subCategories = Array.from(new Set(allReviews.map(r => r.subCategory))).filter(Boolean).sort();
 
   // Month-over-Month calculation exclusion logic
   const now = new Date();
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  // Filter out current month for MoM calculation to get "finished" month data
   const finishedStats = stats.filter(s => s.month !== currentMonthStr);
 
   const growthRate = finishedStats.length >= 2
@@ -52,8 +51,8 @@ export default async function DashboardPage() {
           <StatCard title="월간 성장세" value={`${growthRate > 0 ? '+' : ''}${growthRate}%`} icon={<TrendingUp className="text-purple-400" />} description="전월 대비 리뷰 유입량 (확정월 기준)" trend={growthRate >= 0 ? 'up' : 'down'} />
         </div>
 
-        {/* Filterable Monthly Stats Table & Graph */}
-        <DashboardStats allReviews={allReviews} initialStats={stats} />
+        {/* Filterable Monthly Stats Table & Graph - only pass stats, not all reviews */}
+        <DashboardStats initialStats={stats} initialSubCategories={subCategories} />
 
         {/* Recent Reviews Sidebar */}
         <section className="space-y-4">
@@ -63,28 +62,35 @@ export default async function DashboardPage() {
               전체 보기 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recentReviews.map(r => (
-              <div key={r.id} className="bg-card border border-border p-5 rounded-xl space-y-3 hover:border-primary/30 transition-colors group">
-                <div className="flex justify-between items-start">
-                  <div className="flex flex-col">
-                    <span className="text-sm font-bold text-foreground">{r.userName}</span>
-                    <span className="text-[10px] text-muted-foreground">{new Date(r.date).toLocaleDateString()}</span>
+          {recentReviews.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <p className="text-lg font-bold">아직 수집된 리뷰가 없습니다.</p>
+              <p className="text-sm mt-2">상단의 &apos;데이터 업데이트&apos; 버튼을 클릭하여 리뷰를 수집해주세요.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recentReviews.map(r => (
+                <div key={r.id} className="bg-card border border-border p-5 rounded-xl space-y-3 hover:border-primary/30 transition-colors group">
+                  <div className="flex justify-between items-start">
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-foreground">{r.userName}</span>
+                      <span className="text-[10px] text-muted-foreground">{new Date(r.date).toLocaleDateString()}</span>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${r.score >= 3 ? 'bg-green-500/10 text-green-400' : 'bg-primary/10 text-primary'}`}>
+                      {r.subCategory || (r.score >= 3 ? '긍정' : '부정')}
+                    </span>
                   </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${r.score >= 3 ? 'bg-green-500/10 text-green-400' : 'bg-primary/10 text-primary'}`}>
-                    {r.subCategory || (r.score >= 3 ? '긍정' : '부정')}
-                  </span>
-                </div>
-                <p className="text-xs leading-relaxed line-clamp-3 text-foreground/80 italic">"{r.text}"</p>
-                <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                  <div className="text-yellow-500 text-xs">{'★'.repeat(r.score)}</div>
-                  <div className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${r.store === 'google-play' ? 'bg-blue-900/40 text-blue-400' : 'bg-gray-700/40 text-gray-400'}`}>
-                    {r.store === 'google-play' ? 'GOOGLE' : 'APPLE'}
+                  <p className="text-xs leading-relaxed line-clamp-3 text-foreground/80 italic">&quot;{r.text}&quot;</p>
+                  <div className="flex justify-between items-center pt-2 border-t border-border/50">
+                    <div className="text-yellow-500 text-xs">{'★'.repeat(r.score)}</div>
+                    <div className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${r.store === 'google-play' ? 'bg-blue-900/40 text-blue-400' : 'bg-gray-700/40 text-gray-400'}`}>
+                      {r.store === 'google-play' ? 'GOOGLE' : 'APPLE'}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </Layout>

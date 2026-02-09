@@ -44,7 +44,7 @@ export function UpdateButton() {
             }
 
             if (data.success) {
-                alert(`${data.count}개의 새로운 리뷰를 성공적으로 업데이트했습니다.`);
+                alert(data.message || `${data.count}개의 새로운 리뷰를 업데이트했습니다.`);
                 window.location.reload();
             } else if (data.error === 'ALREADY_UPDATED') {
                 alert("이미 다른 사용자가 오늘 업데이트를 완료했습니다. 내일 다시 시도해주세요.");

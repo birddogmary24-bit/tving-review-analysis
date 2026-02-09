@@ -1,17 +1,23 @@
 'use client';
 
 import { AnalyzedReview, Category } from '@/lib/types';
-import { useState, useMemo } from 'react';
-import { Search, Filter, Calendar, Star } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Search, Filter, Calendar, Star, Loader2 } from 'lucide-react';
 import { SUB_CATEGORIES } from '@/lib/ai';
-
-interface ReviewListProps {
-    initialReviews: AnalyzedReview[];
-}
 
 const ITEMS_PER_PAGE = 30;
 
-export function ReviewList({ initialReviews }: ReviewListProps) {
+interface ReviewsResponse {
+    reviews: AnalyzedReview[];
+    total: number;
+    page: number;
+    totalPages: number;
+    totalAll: number;
+    availableMonths: string[];
+    starCounts: Record<number, number>;
+}
+
+export function ReviewList() {
     const [categoryFilter, setCategoryFilter] = useState<Category | '전체'>('전체');
     const [subCategoryFilter, setSubCategoryFilter] = useState<string>('전체');
     const [scoreFilter, setScoreFilter] = useState<number | '전체'>('전체');
@@ -19,41 +25,48 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
     const [isMonthFilterOpen, setIsMonthFilterOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [data, setData] = useState<ReviewsResponse | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [searchDebounce, setSearchDebounce] = useState('');
 
-    const availableMonths = useMemo(() => {
-        const months = Array.from(new Set(initialReviews.map(r => r.date.substring(0, 7)))).sort((a, b) => b.localeCompare(a));
-        return months;
-    }, [initialReviews]);
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => setSearchDebounce(searchTerm), 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
-    const filteredReviews = useMemo(() => {
-        return initialReviews.filter(r => {
-            const month = r.date.substring(0, 7);
-            const matchesCategory = categoryFilter === '전체' || r.category === categoryFilter;
-            const matchesSubCategory = subCategoryFilter === '전체' || r.subCategory === subCategoryFilter;
-            const matchesScore = scoreFilter === '전체' || r.score === scoreFilter;
-            const matchesMonth = selectedMonths.length === 0 || selectedMonths.includes(month);
-            const matchesSearch = !searchTerm ||
-                r.text.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                r.userName.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchesCategory && matchesSubCategory && matchesScore && matchesMonth && matchesSearch;
-        });
-    }, [initialReviews, categoryFilter, subCategoryFilter, scoreFilter, selectedMonths, searchTerm]);
+    const fetchReviews = useCallback(async () => {
+        setLoading(true);
+        try {
+            const params = new URLSearchParams();
+            params.set('page', String(currentPage));
+            params.set('limit', String(ITEMS_PER_PAGE));
+            if (categoryFilter !== '전체') params.set('category', categoryFilter);
+            if (subCategoryFilter !== '전체') params.set('subCategory', subCategoryFilter);
+            if (scoreFilter !== '전체') params.set('score', String(scoreFilter));
+            if (selectedMonths.length > 0) params.set('months', selectedMonths.join(','));
+            if (searchDebounce) params.set('search', searchDebounce);
 
-    const totalPages = Math.ceil(filteredReviews.length / ITEMS_PER_PAGE);
-    const paginatedReviews = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        return filteredReviews.slice(start, start + ITEMS_PER_PAGE);
-    }, [filteredReviews, currentPage]);
+            const res = await fetch(`/api/reviews/list?${params.toString()}`);
+            const json = await res.json();
+            setData(json);
+        } catch {
+            setData(null);
+        } finally {
+            setLoading(false);
+        }
+    }, [currentPage, categoryFilter, subCategoryFilter, scoreFilter, selectedMonths, searchDebounce]);
 
-    const starCounts = useMemo(() => {
-        const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-        initialReviews.forEach(r => {
-            if (counts[r.score as keyof typeof counts] !== undefined) {
-                counts[r.score as keyof typeof counts]++;
-            }
-        });
-        return counts;
-    }, [initialReviews]);
+    useEffect(() => {
+        fetchReviews();
+    }, [fetchReviews]);
+
+    const reviews = data?.reviews || [];
+    const total = data?.total || 0;
+    const totalPages = data?.totalPages || 0;
+    const availableMonths = data?.availableMonths || [];
+    const starCounts = data?.starCounts || { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const totalAll = data?.totalAll || 0;
 
     const toggleMonth = (month: string) => {
         setSelectedMonths(prev =>
@@ -64,13 +77,10 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
 
     const availableSubCategories = useMemo(() => {
         if (categoryFilter === '전체') {
-            const all = Array.from(new Set(initialReviews.map(r => r.subCategory || '미분류'))).sort();
-            return all;
+            return Object.values(SUB_CATEGORIES).flat();
         }
-        const predefined = SUB_CATEGORIES[categoryFilter] || [];
-        const fromData = Array.from(new Set(initialReviews.filter(r => r.category === categoryFilter).map(r => r.subCategory))).filter(Boolean);
-        return Array.from(new Set([...predefined, ...fromData])).sort();
-    }, [initialReviews, categoryFilter]);
+        return SUB_CATEGORIES[categoryFilter] || [];
+    }, [categoryFilter]);
 
     return (
         <div className="space-y-8">
@@ -88,7 +98,6 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                        {/* Month multi-select */}
                         <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl relative hover:border-primary/50 transition-colors">
                             <button
                                 onClick={() => setIsMonthFilterOpen(!isMonthFilterOpen)}
@@ -103,10 +112,7 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                                 <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl p-2 z-50">
                                     <div className="max-h-60 overflow-y-auto space-y-1">
                                         <button
-                                            onClick={() => {
-                                                setSelectedMonths([]);
-                                                setIsMonthFilterOpen(false);
-                                            }}
+                                            onClick={() => { setSelectedMonths([]); setIsMonthFilterOpen(false); }}
                                             className="w-full text-left px-2 py-1 text-xs hover:bg-secondary rounded font-bold"
                                         >
                                             전체 선택 해제
@@ -146,9 +152,9 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                                     setCurrentPage(1);
                                 }}
                             >
-                                <option value="전체">모든 별점 ({initialReviews.length})</option>
+                                <option value="전체">모든 별점 ({totalAll})</option>
                                 {[5, 4, 3, 2, 1].map(s => (
-                                    <option key={s} value={s}>{s}점 ({starCounts[s as keyof typeof starCounts]})</option>
+                                    <option key={s} value={s}>{s}점 ({starCounts[s as keyof typeof starCounts] || 0})</option>
                                 ))}
                             </select>
                         </div>
@@ -159,7 +165,7 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                             <button
                                 key={cat}
                                 onClick={() => {
-                                    setCategoryFilter(cat as any);
+                                    setCategoryFilter(cat as Category | '전체');
                                     setSubCategoryFilter('전체');
                                     setCurrentPage(1);
                                 }}
@@ -213,42 +219,54 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
-                            {paginatedReviews.map((r) => (
-                                <tr key={`${r.store}-${r.id}`} className="hover:bg-white/5 transition-all group border-l-2 border-l-transparent hover:border-l-primary">
-                                    <td className="px-8 py-4 whitespace-nowrap text-xs font-bold text-muted-foreground">{new Date(r.date).toLocaleDateString()}</td>
-                                    <td className="px-8 py-4">
-                                        <div className="flex flex-col">
-                                            <span className="font-extrabold text-sm text-white">{r.userName}</span>
-                                            <span className="text-[9px] text-muted-foreground uppercase font-black">{r.store === 'google-play' ? 'Google Play' : 'App Store'}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className={`w-fit px-2 py-0.5 rounded text-[9px] font-black uppercase ${r.category === '칭찬' ? 'bg-green-500 text-white' :
-                                                r.category === '불만' ? 'bg-primary text-white' :
-                                                    'bg-muted text-foreground'
-                                                }`}>
-                                                {r.category}
-                                            </span>
-                                            <span className="text-[11px] text-foreground font-black tracking-tight">
-                                                {r.subCategory || '미분류'}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-4">
-                                        <div className="flex gap-0.5 text-yellow-500 font-bold text-xs">
-                                            {'★'.repeat(r.score)}
-                                        </div>
-                                    </td>
-                                    <td className="px-8 py-4 text-sm leading-snug font-medium text-foreground/90">
-                                        "{r.text}"
-                                    </td>
-                                </tr>
-                            ))}
-                            {paginatedReviews.length === 0 && (
+                            {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="py-20 text-center text-muted-foreground">데이터가 없습니다.</td>
+                                    <td colSpan={5} className="py-20 text-center text-muted-foreground">
+                                        <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+                                        데이터를 불러오는 중...
+                                    </td>
                                 </tr>
+                            ) : reviews.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="py-20 text-center text-muted-foreground">
+                                        {totalAll === 0
+                                            ? '아직 수집된 리뷰가 없습니다. 데이터 업데이트를 먼저 실행해주세요.'
+                                            : '필터 조건에 맞는 데이터가 없습니다.'}
+                                    </td>
+                                </tr>
+                            ) : (
+                                reviews.map((r) => (
+                                    <tr key={`${r.store}-${r.id}`} className="hover:bg-white/5 transition-all group border-l-2 border-l-transparent hover:border-l-primary">
+                                        <td className="px-8 py-4 whitespace-nowrap text-xs font-bold text-muted-foreground">{new Date(r.date).toLocaleDateString()}</td>
+                                        <td className="px-8 py-4">
+                                            <div className="flex flex-col">
+                                                <span className="font-extrabold text-sm text-white">{r.userName}</span>
+                                                <span className="text-[9px] text-muted-foreground uppercase font-black">{r.store === 'google-play' ? 'Google Play' : 'App Store'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-4">
+                                            <div className="flex flex-col gap-1">
+                                                <span className={`w-fit px-2 py-0.5 rounded text-[9px] font-black uppercase ${r.category === '칭찬' ? 'bg-green-500 text-white' :
+                                                    r.category === '불만' ? 'bg-primary text-white' :
+                                                        'bg-muted text-foreground'
+                                                    }`}>
+                                                    {r.category}
+                                                </span>
+                                                <span className="text-[11px] text-foreground font-black tracking-tight">
+                                                    {r.subCategory || '미분류'}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-4">
+                                            <div className="flex gap-0.5 text-yellow-500 font-bold text-xs">
+                                                {'★'.repeat(r.score)}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-4 text-sm leading-snug font-medium text-foreground/90">
+                                            &quot;{r.text}&quot;
+                                        </td>
+                                    </tr>
+                                ))
                             )}
                         </tbody>
                     </table>
@@ -257,7 +275,7 @@ export function ReviewList({ initialReviews }: ReviewListProps) {
                 {totalPages > 1 && (
                     <div className="flex items-center justify-between px-8 py-6 border-t border-border bg-secondary/10">
                         <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                            Total <span className="text-white">{filteredReviews.length.toLocaleString()}</span> items · Page {currentPage} of {totalPages}
+                            Total <span className="text-white">{total.toLocaleString()}</span> items · Page {currentPage} of {totalPages}
                         </div>
                         <div className="flex gap-2">
                             <button

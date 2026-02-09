@@ -1,24 +1,22 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { AnalyzedReview, MonthlyStats } from '@/lib/types';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { MonthlyStats } from '@/lib/types';
 import { Download, Filter, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface DashboardStatsProps {
-    allReviews: AnalyzedReview[];
     initialStats: MonthlyStats[];
+    initialSubCategories: string[];
 }
 
-export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps) {
+export function DashboardStats({ initialStats, initialSubCategories }: DashboardStatsProps) {
     const [selectedSubCat, setSelectedSubCat] = useState<string>('전체');
-    const [selectedMonths, setSelectedMonths] = useState<string[]>([]); // Empty means all
+    const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
     const [isDateFilterOpen, setIsDateFilterOpen] = useState(false);
-
-    const subCategories = useMemo(() => {
-        return Array.from(new Set(allReviews.map(r => r.subCategory))).filter(Boolean).sort();
-    }, [allReviews]);
+    const [stats, setStats] = useState<MonthlyStats[]>(initialStats);
+    const [loading, setLoading] = useState(false);
 
     const availableMonths = useMemo(() => {
         return initialStats.map(s => s.month).sort((a, b) => b.localeCompare(a));
@@ -27,31 +25,34 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
     const now = new Date();
     const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
+    const fetchStats = useCallback(async (subCat: string) => {
+        if (subCat === '전체') {
+            setStats(initialStats);
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/reviews/stats?subCategory=${encodeURIComponent(subCat)}`);
+            const data = await res.json();
+            setStats(data.stats || []);
+        } catch {
+            setStats([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [initialStats]);
+
+    useEffect(() => {
+        fetchStats(selectedSubCat);
+    }, [selectedSubCat, fetchStats]);
+
     const filteredStats = useMemo(() => {
-        let stats = initialStats.filter(s => s.month >= '2025-01');
-
-        // Subcategory Filter
-        if (selectedSubCat !== '전체') {
-            const statsMap: Record<string, MonthlyStats> = {};
-            allReviews.filter(r => r.subCategory === selectedSubCat).forEach(r => {
-                const month = r.date.substring(0, 7);
-                if (!statsMap[month]) {
-                    statsMap[month] = { month, complaints: 0, compliments: 0, others: 0, total: 0 };
-                }
-                statsMap[month].total++;
-                if (r.score >= 3) statsMap[month].compliments++;
-                else statsMap[month].complaints++;
-            });
-            stats = Object.values(statsMap);
-        }
-
-        // Month Filter (Multi-select)
+        let filtered = stats.filter(s => s.month >= '2025-01');
         if (selectedMonths.length > 0) {
-            stats = stats.filter(s => selectedMonths.includes(s.month));
+            filtered = filtered.filter(s => selectedMonths.includes(s.month));
         }
-
-        return stats.sort((a, b) => a.month.localeCompare(b.month));
-    }, [selectedSubCat, selectedMonths, allReviews, initialStats]);
+        return filtered.sort((a, b) => a.month.localeCompare(b.month));
+    }, [selectedMonths, stats]);
 
     const chartData = useMemo(() => {
         return filteredStats.map(s => ({
@@ -75,25 +76,15 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                     <h3 className="text-xl font-bold flex items-center gap-2">
                         감성 분석 추이
                         <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded">LIVE CHART</span>
+                        {loading && <span className="text-[10px] text-muted-foreground animate-pulse">로딩중...</span>}
                     </h3>
                 </div>
                 <div className="h-[300px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                            <XAxis
-                                dataKey="name"
-                                stroke="#888"
-                                fontSize={10}
-                                tickLine={false}
-                                axisLine={false}
-                            />
-                            <YAxis
-                                stroke="#888"
-                                fontSize={10}
-                                tickLine={false}
-                                axisLine={false}
-                            />
+                            <XAxis dataKey="name" stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#888" fontSize={10} tickLine={false} axisLine={false} />
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }}
                                 itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
@@ -115,7 +106,6 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                     </h2>
 
                     <div className="flex flex-wrap items-center gap-4">
-                        {/* Month multi-select placeholder style */}
                         <div className="flex items-center gap-2 bg-secondary border border-border px-4 py-2 rounded-xl relative">
                             <button
                                 onClick={() => setIsDateFilterOpen(!isDateFilterOpen)}
@@ -130,10 +120,7 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                                 <div className="absolute top-full left-0 mt-2 w-48 bg-card border border-border rounded-xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2">
                                     <div className="max-h-60 overflow-y-auto space-y-1">
                                         <button
-                                            onClick={() => {
-                                                setSelectedMonths([]);
-                                                setIsDateFilterOpen(false);
-                                            }}
+                                            onClick={() => { setSelectedMonths([]); setIsDateFilterOpen(false); }}
                                             className="w-full text-left px-2 py-1 text-xs hover:bg-secondary rounded font-bold"
                                         >
                                             전체 선택 해제
@@ -171,7 +158,7 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                             >
                                 <option value="전체">모든 세부 사유</option>
                                 <optgroup label="분포 중인 사유">
-                                    {subCategories.map(cat => (
+                                    {initialSubCategories.map(cat => (
                                         <option key={cat} value={cat}>{cat}</option>
                                     ))}
                                 </optgroup>
@@ -212,19 +199,20 @@ export function DashboardStats({ allReviews, initialStats }: DashboardStatsProps
                                     <td className="px-8 py-4 text-right">
                                         <div className="flex justify-end">
                                             <div className="w-24 h-2 bg-secondary rounded-full overflow-hidden flex">
-                                                <div
-                                                    className="h-full bg-green-500 shadow-lg shadow-green-500/50"
-                                                    style={{ width: `${(s.compliments / (s.total || 1)) * 100}%` }}
-                                                />
-                                                <div
-                                                    className="h-full bg-primary shadow-lg shadow-primary/50"
-                                                    style={{ width: `${(s.complaints / (s.total || 1)) * 100}%` }}
-                                                />
+                                                <div className="h-full bg-green-500 shadow-lg shadow-green-500/50" style={{ width: `${(s.compliments / (s.total || 1)) * 100}%` }} />
+                                                <div className="h-full bg-primary shadow-lg shadow-primary/50" style={{ width: `${(s.complaints / (s.total || 1)) * 100}%` }} />
                                             </div>
                                         </div>
                                     </td>
                                 </tr>
                             ))}
+                            {filteredStats.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="py-20 text-center text-muted-foreground">
+                                        {loading ? '데이터를 불러오는 중...' : '데이터가 없습니다. 먼저 데이터 업데이트를 실행해주세요.'}
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

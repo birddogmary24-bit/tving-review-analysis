@@ -46,7 +46,8 @@ export async function loadReviews(): Promise<AnalyzedReview[]> {
             const data = await fs.readFile(REVIEWS_FILE, 'utf-8');
             return JSON.parse(data);
         }
-    } catch (e) {
+    } catch (e: any) {
+        console.warn('[Storage] loadReviews failed:', e?.message || e);
         return [];
     }
 }
@@ -123,7 +124,8 @@ export async function loadInsights(): Promise<MonthlyInsight[]> {
             const data = await fs.readFile(INSIGHTS_FILE, 'utf-8');
             return JSON.parse(data);
         }
-    } catch (e) {
+    } catch (e: any) {
+        console.warn('[Storage] loadInsights failed:', e?.message || e);
         return [];
     }
 }
