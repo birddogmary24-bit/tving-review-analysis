@@ -10,7 +10,12 @@ export default async function InsightsPage() {
 
     // Sort by month descending
     const sortedInsights = [...insights].sort((a, b) => b.month.localeCompare(a.month));
-    const latestInsight = sortedInsights[0];
+
+    // Skip broken insights (empty data from failed AI generation)
+    const validInsights = sortedInsights.filter(i =>
+        i.positiveInsights.length > 0 || i.negativeInsights.length > 0 || i.tasks.length > 0
+    );
+    const latestInsight = validInsights[0];
 
     const allReviews = await loadReviews();
 
@@ -291,11 +296,11 @@ export default async function InsightsPage() {
                 </section>
 
                 {/* History Section */}
-                {sortedInsights.length > 1 && (
+                {validInsights.length > 1 && (
                     <section className="space-y-6">
                         <h2 className="text-xl font-bold text-muted-foreground italic">Previous Insights</h2>
                         <div className="flex gap-4 overflow-x-auto pb-4">
-                            {sortedInsights.slice(1).map((history, idx) => (
+                            {validInsights.slice(1).map((history, idx) => (
                                 <a key={idx} href={`/insights?month=${history.month}`} className="flex-shrink-0 bg-secondary/20 border border-border p-4 rounded-2xl hover:bg-secondary/40 transition-colors">
                                     <div className="text-xs font-black text-muted-foreground mb-1">{history.month}</div>
                                     <div className="text-sm font-bold truncate w-32">{history.summary}</div>

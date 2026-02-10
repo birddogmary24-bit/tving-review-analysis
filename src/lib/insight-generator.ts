@@ -182,45 +182,70 @@ export async function generateMonthlyInsight(
     }
     `;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    let text = response.text().trim();
+  // Retry with exponential backoff for transient errors (429 rate limit)
+  const MAX_RETRIES = 3;
 
-    console.log("[Insight] Raw AI Response Type:", typeof text);
-
-    // Clean up markdown code blocks if present
-    if (text.includes('```')) {
-      const matches = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (matches && matches[1]) {
-        text = matches[1].trim();
-      }
-    }
-
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const aiResult = JSON.parse(text);
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text().trim();
 
+      console.log("[Insight] Raw AI Response Type:", typeof text);
+
+      // Clean up markdown code blocks if present
+      if (text.includes('```')) {
+        const matches = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (matches && matches[1]) {
+          text = matches[1].trim();
+        }
+      }
+
+      try {
+        const aiResult = JSON.parse(text);
+
+        return {
+          month,
+          summary: aiResult.summary || "분석이 완료되었습니다.",
+          positiveInsights: aiResult.positiveInsights || [],
+          negativeInsights: aiResult.negativeInsights || [],
+          tasks: aiResult.tasks || [],
+          generatedAt: new Date().toISOString()
+        };
+      } catch (parseError) {
+        console.error("[Insight] JSON Parse Error. Raw text snippet:", text.substring(0, 200));
+        throw new Error(`JSON_PARSE_FAILED: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+      }
+    } catch (error) {
+      const isRetryable = error instanceof Error && (error.message.includes('429') || error.message.includes('Resource exhausted'));
+      console.warn(`[Insight] Attempt ${attempt}/${MAX_RETRIES} failed:`, error instanceof Error ? error.message : error);
+
+      if (isRetryable && attempt < MAX_RETRIES) {
+        const delay = attempt * 15000; // 15s, 30s
+        console.log(`[Insight] Retrying in ${delay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      console.error("[Insight] All retries exhausted or non-retryable error.");
       return {
         month,
-        summary: aiResult.summary || "분석이 완료되었습니다.",
-        positiveInsights: aiResult.positiveInsights || [],
-        negativeInsights: aiResult.negativeInsights || [],
-        tasks: aiResult.tasks || [],
+        summary: `인사이트 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
+        positiveInsights: [],
+        negativeInsights: [],
+        tasks: [],
         generatedAt: new Date().toISOString()
       };
-    } catch (parseError) {
-      console.error("[Insight] JSON Parse Error. Raw text snippet:", text.substring(0, 200));
-      throw new Error(`JSON_PARSE_FAILED: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
     }
-  } catch (error) {
-    console.error("[Insight] Error generating insight with AI:", error);
-    return {
-      month,
-      summary: `인사이트 생성 중 오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`,
-      positiveInsights: [],
-      negativeInsights: [],
-      tasks: [],
-      generatedAt: new Date().toISOString()
-    };
   }
+
+  // Should never reach here, but TypeScript needs it
+  return {
+    month,
+    summary: "인사이트 생성에 실패했습니다.",
+    positiveInsights: [],
+    negativeInsights: [],
+    tasks: [],
+    generatedAt: new Date().toISOString()
+  };
 }

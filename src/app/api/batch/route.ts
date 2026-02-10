@@ -68,14 +68,21 @@ export async function GET(request: Request) {
         const allReviewsAfterUpdate = await loadReviews();
         const insight = await generateMonthlyInsight(monthToRefresh, allReviewsAfterUpdate);
 
-        const existingInsights = await loadInsights();
-        const updatedInsights = [
-            ...existingInsights.filter((i: MonthlyInsight) => i.month !== insight.month),
-            insight
-        ].sort((a, b) => b.month.localeCompare(a.month));
+        // Only save if the insight has actual data (not a failed/empty result)
+        const hasData = insight.positiveInsights.length > 0 || insight.negativeInsights.length > 0 || insight.tasks.length > 0;
 
-        await saveInsights(updatedInsights);
-        console.log(`[Insight] Monthly insight for ${monthToRefresh} refreshed successfully.`);
+        if (hasData) {
+            const existingInsights = await loadInsights();
+            const updatedInsights = [
+                ...existingInsights.filter((i: MonthlyInsight) => i.month !== insight.month),
+                insight
+            ].sort((a, b) => b.month.localeCompare(a.month));
+
+            await saveInsights(updatedInsights);
+            console.log(`[Insight] Monthly insight for ${monthToRefresh} refreshed successfully.`);
+        } else {
+            console.warn(`[Insight] Insight for ${monthToRefresh} was empty (AI error?). Keeping existing data.`);
+        }
 
         return NextResponse.json({
             success: true,
