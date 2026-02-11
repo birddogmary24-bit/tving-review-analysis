@@ -32,7 +32,11 @@ export function UpdateButton() {
 
         setLoading(true);
         try {
-            const res = await fetch(`/api/batch?password=${encodeURIComponent(password)}`);
+            const res = await fetch('/api/batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password }),
+            });
 
             let data;
             const contentType = res.headers.get("content-type");

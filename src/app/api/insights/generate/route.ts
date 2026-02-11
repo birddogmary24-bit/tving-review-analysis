@@ -4,13 +4,22 @@ import { loadReviews, loadInsights, saveInsights } from '@/lib/storage';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
-    const { searchParams } = new URL(request.url);
-    const password = searchParams.get('password');
-    const targetMonth = searchParams.get('month'); // YYYY-MM
+export async function POST(request: Request) {
+    let password: string | null = null;
+    let targetMonth: string | null = null;
+    try {
+        const body = await request.json();
+        password = body.password || null;
+        targetMonth = body.month || null; // YYYY-MM
+    } catch {
+        return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
 
-    // Use environment variable for password protection instead of hardcoding
-    const adminPassword = process.env.UPDATE_PASSWORD || 'tving2026';
+    const adminPassword = process.env.UPDATE_PASSWORD;
+    if (!adminPassword) {
+        console.error('[Insights] UPDATE_PASSWORD environment variable is not set');
+        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
 
     if (password !== adminPassword) {
         return NextResponse.json({

@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { MonthlyStats } from '@/lib/types';
 import { Download, Filter, Calendar } from 'lucide-react';
-import Link from 'next/link';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 interface DashboardStatsProps {
@@ -164,12 +163,36 @@ export function DashboardStats({ initialStats, initialSubCategories }: Dashboard
                                 </optgroup>
                             </select>
                         </div>
-                        <Link
-                            href="/api/export"
-                            className="text-sm font-black text-white bg-secondary border border-border px-5 py-2.5 rounded-xl hover:bg-muted flex items-center gap-2 transition-all hover:scale-105"
+                        <button
+                            onClick={async () => {
+                                const pw = prompt("관리자 비밀번호를 입력하세요:");
+                                if (!pw) return;
+                                try {
+                                    const res = await fetch('/api/export', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ password: pw }),
+                                    });
+                                    if (!res.ok) {
+                                        const err = await res.json();
+                                        alert(err.error === 'UNAUTHORIZED' ? '비밀번호가 올바르지 않습니다.' : '내보내기에 실패했습니다.');
+                                        return;
+                                    }
+                                    const blob = await res.blob();
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = 'tving_reviews_analysis.xlsx';
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                } catch {
+                                    alert('내보내기 중 오류가 발생했습니다.');
+                                }
+                            }}
+                            className="text-sm font-black text-white bg-secondary border border-border px-5 py-2.5 rounded-xl hover:bg-muted flex items-center gap-2 transition-all hover:scale-105 cursor-pointer"
                         >
                             <Download className="w-4 h-4" /> EXCEL
-                        </Link>
+                        </button>
                     </div>
                 </div>
             </div>
