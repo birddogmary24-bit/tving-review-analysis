@@ -13,15 +13,21 @@ jobs:
       - name: Trigger Data Update
         env:
           UPDATE_PASSWORD: ${{ secrets.UPDATE_PASSWORD }}
+          SERVICE_URL: ${{ secrets.SERVICE_URL }}
         run: |
-          curl -f "https://tving-analysis-520722818842.asia-northeast3.run.app/api/batch?password=${UPDATE_PASSWORD}" || exit 1
-          
+          curl -f -X POST "${SERVICE_URL}/api/batch" \
+            -H "Content-Type: application/json" \
+            -d "{\"password\":\"${UPDATE_PASSWORD}\"}" || exit 1
+
       - name: Wait for processing
         run: sleep 30
-        
+
       - name: Generate Monthly Insights
         env:
           UPDATE_PASSWORD: ${{ secrets.UPDATE_PASSWORD }}
+          SERVICE_URL: ${{ secrets.SERVICE_URL }}
         run: |
           CURRENT_MONTH=$(date -u +"%Y-%m")
-          curl -f "https://tving-analysis-520722818842.asia-northeast3.run.app/api/insights/generate?month=${CURRENT_MONTH}&password=${UPDATE_PASSWORD}" || exit 1
+          curl -f -X POST "${SERVICE_URL}/api/insights/generate" \
+            -H "Content-Type: application/json" \
+            -d "{\"password\":\"${UPDATE_PASSWORD}\",\"month\":\"${CURRENT_MONTH}\"}" || exit 1
