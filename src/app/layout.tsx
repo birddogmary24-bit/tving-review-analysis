@@ -1,20 +1,26 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Sidebar } from "@/components/layout/sidebar";
 
 export const metadata: Metadata = {
-  title: "TVING 리뷰 분석 시스템",
-  description: "앱스토어 및 구글 플레이 리뷰 분석 대시보드",
+  title: "AppScope - OTT 리뷰 분석",
+  description: "국내 주요 OTT 서비스 리뷰 통합 분석 플랫폼",
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="ko">
       <body className="antialiased">
-        {children}
+        <div className="min-h-screen flex">
+          <Sidebar />
+          <main className="flex-1 ml-64 p-8">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
