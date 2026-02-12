@@ -1,80 +1,61 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { RefreshCw, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 
-export function UpdateButton() {
-    const [loading, setLoading] = useState(false);
-    const [canUpdate, setCanUpdate] = useState<boolean | null>(null);
+interface UpdateButtonProps {
+  appId: string;
+  appName: string;
+}
 
-    useEffect(() => {
-        checkStatus();
-    }, []);
+export function UpdateButton({ appId, appName }: UpdateButtonProps) {
+  const [loading, setLoading] = useState(false);
 
-    const checkStatus = async () => {
-        try {
-            const res = await fetch('/api/batch/status');
-            const data = await res.json();
-            setCanUpdate(true); // Limits removed
-        } catch (e) {
-            setCanUpdate(true);
-        }
-    };
+  const handleUpdate = async () => {
+    if (loading) return;
 
-    const handleUpdate = async () => {
-        if (loading) return;
+    const password = prompt(`${appName} 리뷰 수집을 위한 관리자 비밀번호를 입력하세요:`);
+    if (!password) return;
 
-        const password = prompt("관리자 비밀번호를 입력하세요:");
-        if (!password) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/${appId}/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
 
-        const confirmUpdate = confirm("데이터 업데이트를 시작하시겠습니까?");
-        if (!confirmUpdate) return;
+      const contentType = res.headers.get('content-type');
+      if (!contentType?.includes('application/json')) {
+        throw new Error(`서버 응답 오류 (Status: ${res.status})`);
+      }
 
-        setLoading(true);
-        try {
-            const res = await fetch('/api/batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password }),
-            });
+      const data = await res.json();
 
-            let data;
-            const contentType = res.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-                data = await res.json();
-            } else {
-                const text = await res.text();
-                throw new Error(`서버응답이 올바르지 않습니다. (Status: ${res.status}). ${text.substring(0, 50)}... 서버 타임아웃일 가능성이 높습니다.`);
-            }
+      if (res.ok) {
+        alert(`${appName}: ${data.newCount || 0}개 신규 리뷰 수집 완료! (전체: ${data.totalReviews || 0}건)`);
+        window.location.reload();
+      } else if (res.status === 401) {
+        alert('비밀번호가 올바르지 않습니다.');
+      } else {
+        alert(`오류: ${data.error || '알 수 없는 오류'}`);
+      }
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : '서버 응답 없음';
+      alert(`업데이트 중 오류: ${msg}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            if (data.success) {
-                alert(data.message || `${data.count}개의 새로운 리뷰를 업데이트했습니다.`);
-                window.location.reload();
-            } else if (data.error === 'ALREADY_UPDATED') {
-                alert("이미 다른 사용자가 오늘 업데이트를 완료했습니다. 내일 다시 시도해주세요.");
-                setCanUpdate(false);
-            } else if (data.error === 'UNAUTHORIZED') {
-                alert("비밀번호가 올바르지 않습니다.");
-            } else {
-                alert(`업데이트 중 오류가 발생했습니다: ${data.message || data.error || '상세 정보 없음'}`);
-            }
-        } catch (error: any) {
-            console.error('Update error:', error);
-            alert(`업데이트 중 오류가 발생했습니다: ${error.message || '서버 응답 없음'}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-    return (
-        <button
-            onClick={handleUpdate}
-            disabled={loading || canUpdate === null}
-            className={`bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all transform hover:scale-105 shadow-lg shadow-primary/20 flex items-center gap-2 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'AI 분석 중...' : '데이터 업데이트'}
-        </button>
-    );
+  return (
+    <button
+      onClick={handleUpdate}
+      disabled={loading}
+      className="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg shadow-primary/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+      {loading ? 'AI 분석 중...' : '리뷰 수집'}
+    </button>
+  );
 }

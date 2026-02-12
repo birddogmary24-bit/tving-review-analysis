@@ -1,116 +1,116 @@
-import Layout from '@/components/layout';
-import { getMonthlyStats, loadReviews } from '@/lib/storage';
+import { OTT_APPS } from '@/lib/apps';
+import { loadReviews, getMonthlyStats, getLastUpdateTimestamp } from '@/lib/storage';
+import { BarChart3, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-import { TrendingUp, MessageSquare, ThumbsUp, ThumbsDown, ArrowRight, BarChart3 } from 'lucide-react';
-import Link from 'next/link';
-import { DashboardStats } from '@/components/dashboard-stats';
+export default async function HomePage() {
+  const appSummaries = await Promise.all(
+    OTT_APPS.map(async (app) => {
+      const reviews = await loadReviews(app.id);
+      const stats = await getMonthlyStats(app.id);
+      const lastUpdate = await getLastUpdateTimestamp(app.id);
 
-export default async function DashboardPage() {
-  const stats = await getMonthlyStats();
-  const allReviews = await loadReviews();
-  const recentReviews = [...allReviews].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+      const total = reviews.length;
+      const avgScore = total > 0
+        ? Math.round((reviews.reduce((s, r) => s + r.score, 0) / total) * 10) / 10
+        : 0;
+      const positive = reviews.filter(r => r.score >= 3).length;
 
-  // Pre-compute summary values server-side (no need to send all reviews to client)
-  const complimentsCount = allReviews.filter(r => r.score >= 3).length;
-  const complaintsCount = allReviews.filter(r => r.score <= 2).length;
-  const subCategories = Array.from(new Set(allReviews.map(r => r.subCategory))).filter(Boolean).sort();
-
-  // Month-over-Month calculation exclusion logic
-  const now = new Date();
-  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const finishedStats = stats.filter(s => s.month !== currentMonthStr);
-
-  const growthRate = finishedStats.length >= 2
-    ? Math.round(((finishedStats[0].total - finishedStats[1].total) / (finishedStats[1].total || 1)) * 100)
-    : 0;
-
-  return (
-    <Layout>
-      <div className="space-y-10">
-        {/* Hero */}
-        <section className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-extrabold tracking-tight flex items-center gap-3">
-              <BarChart3 className="text-primary w-10 h-10" />
-              리뷰 분석 리포트
-            </h1>
-            <p className="text-muted-foreground text-lg italic">TVING App Store & Play Store Analysis</p>
-          </div>
-          <div className="bg-secondary/50 border border-border px-4 py-2 rounded-xl text-xs font-medium text-muted-foreground">
-            데이터 업데이트: {new Date().toLocaleString()}
-          </div>
-        </section>
-
-        {/* Stats Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard title="연간 누적 리뷰" value={allReviews.length.toLocaleString()} icon={<MessageSquare className="text-blue-400" />} description="최근 12개월 수집 총량" />
-          <StatCard title="긍정 반응" value={complimentsCount.toLocaleString()} icon={<ThumbsUp className="text-green-400" />} description="별점 3점 이상 리뷰" />
-          <StatCard title="개선 필요" value={complaintsCount.toLocaleString()} icon={<ThumbsDown className="text-primary" />} description="별점 2점 이하 리뷰" />
-          <StatCard title="월간 성장세" value={`${growthRate > 0 ? '+' : ''}${growthRate}%`} icon={<TrendingUp className="text-purple-400" />} description="전월 대비 리뷰 유입량 (확정월 기준)" trend={growthRate >= 0 ? 'up' : 'down'} />
-        </div>
-
-        {/* Filterable Monthly Stats Table & Graph - only pass stats, not all reviews */}
-        <DashboardStats initialStats={stats} initialSubCategories={subCategories} />
-
-        {/* Recent Reviews Sidebar */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">최근 리뷰 모니터링</h2>
-            <Link href="/reviews" className="flex items-center gap-1 text-sm font-medium text-primary hover:underline group">
-              전체 보기 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
-          {recentReviews.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <p className="text-lg font-bold">아직 수집된 리뷰가 없습니다.</p>
-              <p className="text-sm mt-2">상단의 &apos;데이터 업데이트&apos; 버튼을 클릭하여 리뷰를 수집해주세요.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recentReviews.map(r => (
-                <div key={r.id} className="bg-card border border-border p-5 rounded-xl space-y-3 hover:border-primary/30 transition-colors group">
-                  <div className="flex justify-between items-start">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-foreground">{r.userName}</span>
-                      <span className="text-[10px] text-muted-foreground">{new Date(r.date).toLocaleDateString()}</span>
-                    </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${r.score >= 3 ? 'bg-green-500/10 text-green-400' : 'bg-primary/10 text-primary'}`}>
-                      {r.subCategory || (r.score >= 3 ? '긍정' : '부정')}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed line-clamp-3 text-foreground/80 italic">&quot;{r.text}&quot;</p>
-                  <div className="flex justify-between items-center pt-2 border-t border-border/50">
-                    <div className="text-yellow-500 text-xs">{'★'.repeat(r.score)}</div>
-                    <div className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${r.store === 'google-play' ? 'bg-blue-900/40 text-blue-400' : 'bg-gray-700/40 text-gray-400'}`}>
-                      {r.store === 'google-play' ? 'GOOGLE' : 'APPLE'}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
-    </Layout>
+      return {
+        ...app,
+        total,
+        avgScore,
+        positive,
+        positiveRatio: total > 0 ? Math.round((positive / total) * 100) : 0,
+        lastUpdate,
+        recentMonth: stats[0] || null,
+      };
+    })
   );
-}
 
-function StatCard({ title, value, icon, description, trend }: { title: string, value: string, icon: React.ReactNode, description: string, trend?: 'up' | 'down' }) {
+  const totalReviews = appSummaries.reduce((s, a) => s + a.total, 0);
+
   return (
-    <div className="bg-card border border-border p-6 rounded-2xl space-y-4 hover:shadow-2xl hover:shadow-primary/5 transition-all">
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground">{title}</span>
-        <div className="p-2 bg-secondary rounded-lg">{icon}</div>
+    <div className="space-y-8">
+      <div className="space-y-2">
+        <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
+          <BarChart3 className="text-primary w-8 h-8" />
+          OTT 리뷰 분석 통합 대시보드
+        </h1>
+        <p className="text-muted-foreground text-lg">
+          국내 주요 OTT 6개 서비스의 앱스토어 리뷰를 AI로 분석합니다.
+        </p>
       </div>
-      <div className="space-y-1">
-        <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-black italic tracking-tighter">{value}</span>
-          {trend && <span className={`text-xs font-bold ${trend === 'up' ? 'text-green-500' : 'text-primary'}`}>{trend === 'up' ? '▲' : '▼'}</span>}
+
+      <div className="bg-card border border-border rounded-xl p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-widest text-muted-foreground font-bold">전체 수집 리뷰</p>
+            <p className="text-5xl font-black mt-1">{totalReviews.toLocaleString()}</p>
+          </div>
+          <div className="text-right text-base text-muted-foreground">
+            <p>{OTT_APPS.length}개 OTT 서비스</p>
+            <p>Google Play + App Store</p>
+          </div>
         </div>
-        <p className="text-[10px] text-muted-foreground font-medium">{description}</p>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {appSummaries.map(app => (
+          <Link
+            key={app.id}
+            href={`/${app.id}`}
+            className="bg-card border border-border rounded-xl p-5 space-y-4 hover:border-primary/40 transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="w-4 h-4 rounded-full" style={{ backgroundColor: app.color }} />
+                <span className="font-bold text-lg">{app.name}</span>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </div>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-3xl font-bold">{app.total.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">리뷰</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold">{app.avgScore}</p>
+                <p className="text-sm text-muted-foreground">평균 별점</p>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-success">{app.positiveRatio}%</p>
+                <p className="text-sm text-muted-foreground">긍정 비율</p>
+              </div>
+            </div>
+            {app.total > 0 && (
+              <div className="flex h-2 rounded-full overflow-hidden bg-secondary">
+                <div className="bg-success rounded-l-full" style={{ width: `${app.positiveRatio}%` }} />
+                <div className="bg-danger rounded-r-full" style={{ width: `${100 - app.positiveRatio}%` }} />
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground/60">
+              {app.lastUpdate
+                ? `마지막 업데이트: ${new Date(app.lastUpdate).toLocaleDateString('ko-KR')}`
+                : '아직 데이터 없음 - 리뷰 수집을 시작하세요'}
+            </p>
+          </Link>
+        ))}
+      </div>
+
+      {totalReviews === 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 space-y-3">
+          <h3 className="font-bold text-lg">시작하기</h3>
+          <ol className="list-decimal list-inside space-y-2 text-base text-muted-foreground">
+            <li>왼쪽 사이드바에서 OTT 서비스를 선택하세요.</li>
+            <li>&quot;리뷰 수집&quot; 버튼을 클릭하여 리뷰를 수집하세요.</li>
+            <li>AI가 자동으로 감성 분석과 카테고리 분류를 수행합니다.</li>
+            <li>인사이트 페이지에서 월간 분석 리포트를 확인하세요.</li>
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
