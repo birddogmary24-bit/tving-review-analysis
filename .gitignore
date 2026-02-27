@@ -28,6 +28,16 @@ yarn-error.log*
 # env files
 .env
 .env*.local
+.env*
+
+# security - keys and credentials
+*-sa-key.json
+*credentials*.json
+*.secret
+*.p12
+
+# vercel
+.vercel
 
 # typescript
 *.tsbuildinfo
