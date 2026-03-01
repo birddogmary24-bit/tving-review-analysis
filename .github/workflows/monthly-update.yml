@@ -9,25 +9,20 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [tving, netflix, disneyplus, wavve, coupangplay, watcha]
     steps:
-      - name: Trigger Data Update
+      - name: Trigger Data Update for ${{ matrix.app }}
         env:
           UPDATE_PASSWORD: ${{ secrets.UPDATE_PASSWORD }}
           SERVICE_URL: ${{ secrets.SERVICE_URL }}
         run: |
-          curl -f -X POST "${SERVICE_URL}/api/batch" \
+          echo "Starting batch update for ${{ matrix.app }}..."
+          curl -f -X POST "${SERVICE_URL}/api/${{ matrix.app }}/batch" \
+            --connect-timeout 30 \
+            --max-time 300 \
             -H "Content-Type: application/json" \
             -d "{\"password\":\"${UPDATE_PASSWORD}\"}" || exit 1
-
-      - name: Wait for processing
-        run: sleep 30
-
-      - name: Generate Monthly Insights
-        env:
-          UPDATE_PASSWORD: ${{ secrets.UPDATE_PASSWORD }}
-          SERVICE_URL: ${{ secrets.SERVICE_URL }}
-        run: |
-          CURRENT_MONTH=$(date -u +"%Y-%m")
-          curl -f -X POST "${SERVICE_URL}/api/insights/generate" \
-            -H "Content-Type: application/json" \
-            -d "{\"password\":\"${UPDATE_PASSWORD}\",\"month\":\"${CURRENT_MONTH}\"}" || exit 1
+          echo "Batch update completed for ${{ matrix.app }}"
