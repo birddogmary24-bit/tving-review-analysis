@@ -9,20 +9,16 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        app: [tving, netflix, disneyplus, wavve, coupangplay, watcha]
     steps:
-      - name: Trigger Data Update for ${{ matrix.app }}
+      - name: Trigger Data Update for Tving
         env:
           UPDATE_PASSWORD: ${{ secrets.UPDATE_PASSWORD }}
           SERVICE_URL: ${{ secrets.SERVICE_URL }}
         run: |
-          echo "Starting batch update for ${{ matrix.app }}..."
-          curl -f -X POST "${SERVICE_URL}/api/${{ matrix.app }}/batch" \
+          echo "Starting batch update for tving..."
+          curl -f -X POST "${SERVICE_URL}/api/tving/batch" \
             --connect-timeout 30 \
             --max-time 300 \
             -H "Content-Type: application/json" \
             -d "{\"password\":\"${UPDATE_PASSWORD}\"}" || exit 1
-          echo "Batch update completed for ${{ matrix.app }}"
+          echo "Batch update completed for tving"
