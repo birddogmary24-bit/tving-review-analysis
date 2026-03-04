@@ -3,7 +3,7 @@ import { Review, AnalyzedReview, Category } from "./types";
 import { SUB_CATEGORIES, getAppByIdOrThrow } from "./apps";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const MODEL_NAME = "gemini-2.0-flash";
+const MODEL_NAME = "gemini-2.0-flash-lite";
 
 function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
